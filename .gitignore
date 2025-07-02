@@ -1,3 +1,8 @@
+# ignore my inspection trail
+inspect.ipynb
+# ignore .vscode
+.vscode/
+
 # ignored folders
 logs/*
 models/*
