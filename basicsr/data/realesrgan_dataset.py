@@ -36,6 +36,9 @@ class RealESRGANDataset(data.Dataset):
     def __init__(self, opt):
         super(RealESRGANDataset, self).__init__()
         self.opt = opt
+        print(">>>> Dataset opt keys:", list(opt.keys()))
+        print(">>>> Example opt content:", opt)
+
         self.file_client = None
         self.io_backend_opt = opt['io_backend']
         if 'crop_size' in opt:
@@ -126,7 +129,15 @@ class RealESRGANDataset(data.Dataset):
         retry = 3
         while retry > 0:
             try:
-                img_bytes = self.file_client.get(gt_path, 'gt')
+                if gt_path.endswith(".npy"):
+                    img_gt = np.load(gt_path)
+                    if img_gt.ndim == 2:
+                        img_gt = np.expand_dims(img_gt, axis=-1)
+                    elif img_gt.ndim == 3 and img_gt.shape[0] in [1, 3]:
+                        img_gt = np.transpose(img_gt, (1, 2, 0))
+                else:
+                    img_bytes = self.file_client.get(gt_path, 'gt')
+            
             except (IOError, OSError) as e:
                 # logger = get_root_logger()
                 # logger.warn(f'File client error: {e}, remaining retry times: {retry - 1}')
@@ -138,20 +149,46 @@ class RealESRGANDataset(data.Dataset):
                 break
             finally:
                 retry -= 1
-        img_gt = imfrombytes(img_bytes, float32=True)
-        # filter the dataset and remove images with too low quality
-        img_size = os.path.getsize(gt_path)
-        img_size = img_size/1024
 
-        while img_gt.shape[0] * img_gt.shape[1] < 384*384 or img_size<100:
-            index = random.randint(0, self.__len__()-1)
-            gt_path = self.paths[index]
-
-            time.sleep(0.1)  # sleep 1s for occasional server congestion
-            img_bytes = self.file_client.get(gt_path, 'gt')
-            img_gt = imfrombytes(img_bytes, float32=True)
+        resample_trail=0
+        if gt_path.endswith(".npy"):
             img_size = os.path.getsize(gt_path)
             img_size = img_size/1024
+            while img_gt.shape[0] * img_gt.shape[1] < 384*384 or img_size<100:
+                index = random.randint(0, self.__len__()-1)
+                gt_path = self.paths[index]
+
+                time.sleep(0.1)  # sleep 1s for occasional server congestion
+                img_gt = np.load(gt_path)
+                if img_gt.ndim == 2:
+                    img_gt = np.expand_dims(img_gt, axis=-1)
+                elif img_gt.ndim == 3 and img_gt.shape[0] in [1, 3]:
+                    img_gt = np.transpose(img_gt, (1, 2, 0))
+                img_size = os.path.getsize(gt_path)
+                img_size = img_size/1024
+                resample_trail += 1
+                if resample_trail > 100:
+                    raise ValueError(
+                        f"Failed to load a valid image after multiple attempts: {gt_path}")
+        else:
+            img_gt = imfrombytes(img_bytes, float32=True)
+            # filter the dataset and remove images with too low quality
+            img_size = os.path.getsize(gt_path)
+            img_size = img_size/1024
+
+            while img_gt.shape[0] * img_gt.shape[1] < 384*384 or img_size<100:
+                index = random.randint(0, self.__len__()-1)
+                gt_path = self.paths[index]
+
+                time.sleep(0.1)  # sleep 1s for occasional server congestion
+                img_bytes = self.file_client.get(gt_path, 'gt')
+                img_gt = imfrombytes(img_bytes, float32=True)
+                img_size = os.path.getsize(gt_path)
+                img_size = img_size/1024
+                resample_trail += 1
+                if resample_trail > 100:
+                    raise ValueError(
+                        f"Failed to load a valid image after multiple attempts: {gt_path}")
 
         # -------------------- Do augmentation for training: flip, rotation -------------------- #
         img_gt = augment(img_gt, self.opt['use_hflip'], self.opt['use_rot'])
