@@ -664,53 +664,103 @@ def add_poisson_noise(img, scale=1.0, clip=True, rounds=False, gray_noise=False)
     return out
 
 
+# def generate_poisson_noise_pt(img, scale=1.0, gray_noise=0):
+#     """Generate a batch of poisson noise (PyTorch version)
+
+#     Args:
+#         img (Tensor): Input image, shape (b, c, h, w), range [0, 1], float32.
+#         scale (float | Tensor): Noise scale. Number or Tensor with shape (b).
+#             Default: 1.0.
+#         gray_noise (float | Tensor): 0-1 number or Tensor with shape (b).
+#             0 for False, 1 for True. Default: 0.
+
+#     Returns:
+#         (Tensor): Returned noisy image, shape (b, c, h, w), range[0, 1],
+#             float32.
+#     """
+#     b, _, h, w = img.size()
+#     if isinstance(gray_noise, (float, int)):
+#         cal_gray_noise = gray_noise > 0
+#     else:
+#         gray_noise = gray_noise.view(b, 1, 1, 1)
+#         cal_gray_noise = torch.sum(gray_noise) > 0
+#     if cal_gray_noise:
+#         img_gray = rgb_to_grayscale(img, num_output_channels=1)
+#         # round and clip image for counting vals correctly
+#         img_gray = torch.clamp((img_gray * 255.0).round(), 0, 255) / 255.
+#         # use for-loop to get the unique values for each sample
+#         vals_list = [len(torch.unique(img_gray[i, :, :, :])) for i in range(b)]
+#         vals_list = [2**np.ceil(np.log2(vals)) for vals in vals_list]
+#         vals = img_gray.new_tensor(vals_list).view(b, 1, 1, 1)
+#         out = torch.poisson(img_gray * vals) / vals
+#         noise_gray = out - img_gray
+#         noise_gray = noise_gray.expand(b, 3, h, w)
+
+#     # always calculate color noise
+#     # round and clip image for counting vals correctly
+#     img = torch.clamp((img * 255.0).round(), 0, 255) / 255.
+#     # use for-loop to get the unique values for each sample
+#     vals_list = [len(torch.unique(img[i, :, :, :])) for i in range(b)]
+#     vals_list = [2**np.ceil(np.log2(vals)) for vals in vals_list]
+#     vals = img.new_tensor(vals_list).view(b, 1, 1, 1)
+#     out = torch.poisson(img * vals) / vals
+#     noise = out - img
+#     if cal_gray_noise:
+#         noise = noise * (1 - gray_noise) + noise_gray * gray_noise
+#     if not isinstance(scale, (float, int)):
+#         scale = scale.view(b, 1, 1, 1)
+#     return noise * scale
+
 def generate_poisson_noise_pt(img, scale=1.0, gray_noise=0):
-    """Generate a batch of poisson noise (PyTorch version)
+    """
+    Generate a batch of Poisson noise for images with any number of channels.
 
     Args:
-        img (Tensor): Input image, shape (b, c, h, w), range [0, 1], float32.
-        scale (float | Tensor): Noise scale. Number or Tensor with shape (b).
-            Default: 1.0.
-        gray_noise (float | Tensor): 0-1 number or Tensor with shape (b).
-            0 for False, 1 for True. Default: 0.
+        img (Tensor): (B, C, H, W), float32, range [0, 1]
+        scale (float | Tensor): scalar or (B,)
+        gray_noise (float | Tensor): scalar or (B,)
+            0 for color noise (per-channel), 1 for shared-channel noise
 
     Returns:
-        (Tensor): Returned noisy image, shape (b, c, h, w), range[0, 1],
-            float32.
+        noise (Tensor): (B, C, H, W), same dtype/range
     """
-    b, _, h, w = img.size()
+    b, c, h, w = img.size()
+
+    # --- Broadcast gray_noise flag ---
     if isinstance(gray_noise, (float, int)):
-        cal_gray_noise = gray_noise > 0
-    else:
-        gray_noise = gray_noise.view(b, 1, 1, 1)
-        cal_gray_noise = torch.sum(gray_noise) > 0
-    if cal_gray_noise:
-        img_gray = rgb_to_grayscale(img, num_output_channels=1)
-        # round and clip image for counting vals correctly
-        img_gray = torch.clamp((img_gray * 255.0).round(), 0, 255) / 255.
-        # use for-loop to get the unique values for each sample
-        vals_list = [len(torch.unique(img_gray[i, :, :, :])) for i in range(b)]
-        vals_list = [2**np.ceil(np.log2(vals)) for vals in vals_list]
-        vals = img_gray.new_tensor(vals_list).view(b, 1, 1, 1)
-        out = torch.poisson(img_gray * vals) / vals
-        noise_gray = out - img_gray
-        noise_gray = noise_gray.expand(b, 3, h, w)
+        gray_noise = torch.tensor([gray_noise] * b, device=img.device, dtype=img.dtype)
+    gray_noise = gray_noise.view(b, 1, 1, 1)
 
-    # always calculate color noise
-    # round and clip image for counting vals correctly
+    # --- Broadcast scale ---
+    if isinstance(scale, (float, int)):
+        scale = torch.tensor([scale] * b, device=img.device, dtype=img.dtype)
+    scale = scale.view(b, 1, 1, 1)
+
+    # --- Clip and round image ---
     img = torch.clamp((img * 255.0).round(), 0, 255) / 255.
-    # use for-loop to get the unique values for each sample
-    vals_list = [len(torch.unique(img[i, :, :, :])) for i in range(b)]
-    vals_list = [2**np.ceil(np.log2(vals)) for vals in vals_list]
-    vals = img.new_tensor(vals_list).view(b, 1, 1, 1)
-    out = torch.poisson(img * vals) / vals
-    noise = out - img
-    if cal_gray_noise:
-        noise = noise * (1 - gray_noise) + noise_gray * gray_noise
-    if not isinstance(scale, (float, int)):
-        scale = scale.view(b, 1, 1, 1)
-    return noise * scale
 
+    noise = torch.zeros_like(img)
+
+    for i in range(b):
+        img_i = img[i]  # shape (C, H, W)
+        gray = gray_noise[i].item() > 0.5
+
+        if gray:
+            # Use average across channels
+            img_gray = torch.mean(img_i, dim=0, keepdim=True)  # shape (1, H, W)
+            vals = 2 ** np.ceil(np.log2(len(torch.unique(img_gray))))
+            vals = img_gray.new_tensor(vals)
+            out = torch.poisson(img_gray * vals) / vals
+            noise_i = out - img_gray
+            noise[i] = noise_i.expand_as(img_i)
+        else:
+            # Per-channel Poisson noise
+            vals_list = [2 ** np.ceil(np.log2(len(torch.unique(img_i[j])))) for j in range(c)]
+            vals = img_i.new_tensor(vals_list).view(c, 1, 1)
+            out = torch.poisson(img_i * vals) / vals
+            noise[i] = out - img_i
+
+    return noise * scale
 
 def add_poisson_noise_pt(img, scale=1.0, clip=True, rounds=False, gray_noise=0):
     """Add poisson noise to a batch of images (PyTorch version).
