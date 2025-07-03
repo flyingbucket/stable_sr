@@ -10,16 +10,18 @@ model:
     log_every_t: 200
     timesteps: 1000
     first_stage_key: image
-    cond_stage_key: caption #null
+    # cond_stage_key: caption #null
+    cond_stage_key: concate
     image_size: 512
     channels: 4
     cond_stage_trainable: False   # Note: different from the one we trained before
-    conditioning_key: crossattn
+    # conditioning_key: crossattn
     monitor: val/loss_simple_ema
     scale_factor: 0.18215
     use_ema: False
     # for training only
     # ckpt_path: /mnt/lustre/jywang/code/stable_diffmodels/v2-1_512-ema-pruned.ckpt
+    ckpt_path: ckpt/unet_only.ckpt
     unfrozen_diff: False
     random_size: False
     time_replace: 1000
@@ -53,14 +55,15 @@ model:
       params:
         # for training only
         # ckpt_path: /mnt/lustre/jywang/code/stable_diffmodels/v2-1_512-ema-pruned.ckpt
+        # ckpt_path: ckpt/v2-1_512-ema-pruned.ckpt
         embed_dim: 4
         monitor: val/rec_loss
         ddconfig:
           double_z: true
           z_channels: 4
           resolution: 512
-          in_channels: 3
-          out_ch: 3
+          in_channels: 5
+          out_ch: 5
           ch: 128
           ch_mult:
           - 1
@@ -135,8 +138,8 @@ data:
       target: basicsr.data.realesrgan_dataset.RealESRGANDataset
       params:
         queue_size: 180
-        gt_path: ['/mnt/lustre/share/jywang/dataset/DIV8K/train_HR/', '/mnt/lustre/share/jywang/dataset/df2k_ost/GT/']
-        face_gt_path: '/mnt/lustre/share/jywang/dataset/FFHQ/1024/'
+        gt_path: ['/mnt/data/wavelet5_full_64_512/hr_512', '/mnt/data/wavelet5_full_64_512/hr_512']
+        face_gt_path: '/mnt/data/wavelet5_full_64_512/hr_512'
         num_face: 10000
         crop_size: 512
         io_backend:
@@ -166,7 +169,7 @@ data:
     validation:
       target: basicsr.data.realesrgan_dataset.RealESRGANDataset
       params:
-        gt_path: /mnt/lustre/share/jywang/dataset/ImageSR/DIV2K/DIV2K_train_HR/
+        gt_path: /mnt/data/wavelet5_full_64_512/hr_512
         crop_size: 512
         io_backend:
           type: disk
@@ -202,7 +205,7 @@ test_data:
     test:
       target: basicsr.data.realesrgan_dataset.RealESRGANDataset
       params:
-        gt_path: /mnt/lustre/share/jywang/dataset/ImageSR/DIV2K/DIV2K_train_HR/
+        gt_path: /mnt/data/wavelet5_full_64_512/hr_512
         crop_size: 512
         io_backend:
           type: disk
