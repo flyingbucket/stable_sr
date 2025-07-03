@@ -1976,9 +1976,10 @@ class LatentDiffusionSRTextWT(DDPM):
                 clip=True,
                 rounds=False)
         # JPEG compression
-        jpeg_p = out.new_zeros(out.size(0)).uniform_(*self.configs.degradation['jpeg_range'])
-        out = torch.clamp(out, 0, 1)  # clamp to [0, 1], otherwise JPEGer will result in unpleasant artifacts
-        out = jpeger(out, quality=jpeg_p)
+        if self.configs.degradation['use_jpeg']:
+            jpeg_p = out.new_zeros(out.size(0)).uniform_(*self.configs.degradation['jpeg_range'])
+            out = torch.clamp(out, 0, 1)  # clamp to [0, 1], otherwise JPEGer will result in unpleasant artifacts
+            out = jpeger(out, quality=jpeg_p)
 
         # ----------------------- The second degradation process ----------------------- #
         # blur
@@ -2039,14 +2040,16 @@ class LatentDiffusionSRTextWT(DDPM):
                     )
             out = filter2D(out, sinc_kernel)
             # JPEG compression
-            jpeg_p = out.new_zeros(out.size(0)).uniform_(*self.configs.degradation['jpeg_range2'])
-            out = torch.clamp(out, 0, 1)
-            out = jpeger(out, quality=jpeg_p)
+            if self.configs.degradation['use_jpeg']:
+                jpeg_p = out.new_zeros(out.size(0)).uniform_(*self.configs.degradation['jpeg_range2'])
+                out = torch.clamp(out, 0, 1)
+                out = jpeger(out, quality=jpeg_p)
         else:
             # JPEG compression
-            jpeg_p = out.new_zeros(out.size(0)).uniform_(*self.configs.degradation['jpeg_range2'])
-            out = torch.clamp(out, 0, 1)
-            out = jpeger(out, quality=jpeg_p)
+            if self.configs.degradation['use_jpeg']:
+                jpeg_p = out.new_zeros(out.size(0)).uniform_(*self.configs.degradation['jpeg_range2'])
+                out = torch.clamp(out, 0, 1)
+                out = jpeger(out, quality=jpeg_p)
             # resize back + the final sinc filter
             mode = random.choice(['area', 'bilinear', 'bicubic'])
             out = F.interpolate(

@@ -106,6 +106,7 @@ model:
 
 
 degradation:
+  use_jpeg: False
   # the first degradation process
   resize_prob: [0.2, 0.7, 0.1]  # up, down, keep
   resize_range: [0.3, 1.5]
