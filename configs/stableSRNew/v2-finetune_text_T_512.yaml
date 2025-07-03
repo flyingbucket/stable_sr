@@ -137,6 +137,7 @@ data:
     train:
       target: basicsr.data.realesrgan_dataset.RealESRGANDataset
       params:
+        image_type: npy
         queue_size: 180
         gt_path: ['/mnt/data/wavelet5_full_64_512/hr_512', '/mnt/data/wavelet5_full_64_512/hr_512']
         face_gt_path: '/mnt/data/wavelet5_full_64_512/hr_512'
@@ -169,6 +170,7 @@ data:
     validation:
       target: basicsr.data.realesrgan_dataset.RealESRGANDataset
       params:
+        image_type: npy
         gt_path: /mnt/data/wavelet5_full_64_512/hr_512
         crop_size: 512
         io_backend:
