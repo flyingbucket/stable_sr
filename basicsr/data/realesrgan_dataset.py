@@ -125,18 +125,26 @@ class RealESRGANDataset(data.Dataset):
         # -------------------------------- Load gt images -------------------------------- #
         # Shape: (h, w, c); channel order: BGR; image range: [0, 1], float32.
         gt_path = self.paths[index]
+        def load_npy(gt_path):
+            img_gt = np.load(gt_path)  # shape: (H, W, C) — e.g., (512, 512, 5)
+            if img_gt.ndim == 2:
+                img_gt = np.expand_dims(img_gt, axis=-1)  # 灰度图 → (H, W, 1)
+            return img_gt
         # avoid errors caused by high latency in reading files
         retry = 3
         while retry > 0:
             try:
                 if gt_path.endswith(".npy"):
-                    img_gt = np.load(gt_path)
-                    if img_gt.ndim == 2:
-                        img_gt = np.expand_dims(img_gt, axis=-1)
-                    elif img_gt.ndim == 3 and img_gt.shape[0] in [1, 3]:
-                        img_gt = np.transpose(img_gt, (1, 2, 0))
-                else:
-                    img_bytes = self.file_client.get(gt_path, 'gt')
+                    img_gt=load_npy(gt_path)
+                    # img_gt = np.load(gt_path)  # shape: (H, W, C) — e.g., (512, 512, 5)
+
+                    # if img_gt.ndim == 2:
+                    #     img_gt = np.expand_dims(img_gt, axis=-1)  # 灰度图 → (H, W, 1)
+
+                    # elif img_gt.ndim == 3:
+                        # img_gt = np.transpose(img_gt, (2, 0, 1))  # HWC → CHW
+
+                    # img_gt = torch.from_numpy(img_gt).float()  # (C, H, W)
             
             except (IOError, OSError) as e:
                 # logger = get_root_logger()
@@ -159,11 +167,12 @@ class RealESRGANDataset(data.Dataset):
                 gt_path = self.paths[index]
 
                 time.sleep(0.1)  # sleep 1s for occasional server congestion
-                img_gt = np.load(gt_path)
-                if img_gt.ndim == 2:
-                    img_gt = np.expand_dims(img_gt, axis=-1)
-                elif img_gt.ndim == 3 and img_gt.shape[0] in [1, 3]:
-                    img_gt = np.transpose(img_gt, (1, 2, 0))
+                img_gt=load_npy(gt_path)
+                # img_gt = np.load(gt_path)
+                # if img_gt.ndim == 2:
+                #     img_gt = np.expand_dims(img_gt, axis=-1)
+                # elif img_gt.ndim == 3 and img_gt.shape[0] in [1, 3]:
+                #     img_gt = np.transpose(img_gt, (1, 2, 0))
                 img_size = os.path.getsize(gt_path)
                 img_size = img_size/1024
                 resample_trail += 1
@@ -266,9 +275,12 @@ class RealESRGANDataset(data.Dataset):
             sinc_kernel = torch.FloatTensor(sinc_kernel)
         else:
             sinc_kernel = self.pulse_tensor
-
+        assert img_gt.shape[-1]<=10,"Original input should have less then 10 channels. Possibly miss transposed"
         # BGR to RGB, HWC to CHW, numpy to tensor
-        img_gt = img2tensor([img_gt], bgr2rgb=True, float32=True)[0]
+        if gt_path.endswith(".npy"):
+            img_gt=torch.from_numpy(img_gt.transpose(2,0,1)).float()
+        else:
+            img_gt = img2tensor([img_gt], bgr2rgb=True, float32=True)[0]
         kernel = torch.FloatTensor(kernel)
         kernel2 = torch.FloatTensor(kernel2)
 
