@@ -12,17 +12,20 @@ model:
     cond_stage_key: wavelet
     image_size: 512
     channels: 4
-    cond_stage_trainable: False
+    cond_stage_trainable: True 
     monitor: val/loss_simple_ema
     scale_factor: 0.18215
     use_ema: False
-    ckpt_path: ckpt/unet_only.ckpt
-    unfrozen_diff: False
-    random_size: False
-    time_replace: 1000
-    use_usm: True
-    p2_gamma: ~
-    p2_k: ~
+    ckpt_path: "/home/flyingbucket/CODE/datastore/stablesr/ckpt/v2-1_512-ema-pruned.ckpt"
+    ignore_keys:
+      - "first_stage_model.encoder"
+      - "first_stage_model.decoder"
+      - "model.diffusion_model.*.attn2.to_k"
+      - "model.diffusion_model.*.attn2.to_v"   
+    
+    unfrozen_first_stage: True 
+    unfrozen_unet: False
+    unfrozen_cond_stage: True
 
     unet_config:
       target: ldm.modules.diffusionmodules.openaimodel.UNetModelDualcondV2
@@ -122,7 +125,7 @@ data:
       target: basicsr.data.wavelet_dataset.WaveletSRDataset
       params:
         image_type: png
-        gt_path: ["/mnt/data/wavelet5_full_64_512/hr_512"]
+        gt_path: "/home/flyingbucket/CODE/datastore/WHU_512"
         crop_size: 512
         io_backend:
           type: disk
@@ -134,7 +137,7 @@ data:
       target: basicsr.data.wavelet_dataset.WaveletSRDataset
       params:
         image_type: png
-        gt_path: /mnt/data/wavelet5_full_64_512/hr_512
+        gt_path: "/home/flyingbucket/CODE/datastore/WHU_512"
         crop_size: 512
         io_backend:
           type: disk
@@ -151,7 +154,7 @@ test_data:
     test:
       target: basicsr.data.wavelet_dataset.WaveletSRDataset
       params:
-        gt_path: /mnt/data/wavelet5_full_64_512/hr_512
+        gt_path: "/home/flyingbucket/CODE/datastore/WHU_512"
         image_type: png
         crop_size: 512
         io_backend:

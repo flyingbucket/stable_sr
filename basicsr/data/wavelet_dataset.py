@@ -6,19 +6,46 @@ from torchvision.transforms.functional import to_tensor
 from glob import glob
 from PIL import Image
 import pywt  # 小波变换
-
+from omegaconf import ListConfig, DictConfig
 
 class WaveletSRDataset(Dataset):
-    def __init__(self, image_dir, crop_size=None, wavelet="haar"):
+    def __init__(self, gt_path=None, crop_size=None, wavelet="haar", **kwargs):
         """
         Args:
-            image_dir (str): 包含单通道 PNG 图像的目录。
-            crop_size (int or None): 可选裁剪尺寸，默认不裁剪。
-            wavelet (str): 小波基名称，如 'haar'、'db1' 等。
+            gt_path (str or list): 图像路径根目录
+            crop_size (int): 裁剪大小
+            wavelet (str): 小波基名称
+            kwargs: 兼容 config 调用时传入的额外字段
         """
-        self.image_paths = sorted(glob(os.path.join(image_dir, "*.png")))
+
+        # 如果是 config 字典，说明传的是整个 params
+        if isinstance(gt_path, (DictConfig, dict)):
+            params = gt_path
+            gt_path = params.get("gt_path", None)
+            crop_size = params.get("crop_size", crop_size)
+            wavelet = params.get("wavelet", wavelet)
+
+        # 兼容 ListConfig（配置中是列表形式）
+        if isinstance(gt_path, (ListConfig, list)):
+            assert len(gt_path) > 0, "gt_path 不能是空列表"
+            gt_path = gt_path[0]
+
+        assert isinstance(gt_path, str), f"gt_path 应为字符串，但实际为: {type(gt_path)}"
+
+        self.image_paths = sorted(glob(os.path.join(gt_path, "*.png")))
         self.crop_size = crop_size
         self.wavelet = wavelet
+
+#     def __init__(self, image_dir, crop_size=None, wavelet="haar"):
+#         """
+#         Args:
+#             image_dir (str): 包含单通道 PNG 图像的目录。
+#             crop_size (int or None): 可选裁剪尺寸，默认不裁剪。
+#             wavelet (str): 小波基名称，如 'haar'、'db1' 等。
+#         """
+#         self.image_paths = sorted(glob(os.path.join(image_dir, "*.png")))
+#         self.crop_size = crop_size
+#         self.wavelet = wavelet
 
     def _load_image(self, path):
         img = Image.open(path).convert("L")  # 转为单通道灰度图
@@ -57,13 +84,17 @@ class WaveletSRDataset(Dataset):
         if self.crop_size:
             img_gt = self._crop_center(img_gt, self.crop_size)
 
+        # => [1, H, W] → [1, 1, H, W]
+        img_gt_batched = img_gt.unsqueeze(0)
         # 下采样 + 上采样（bicubic）
         lq = F.interpolate(
-            img_gt, scale_factor=0.25, mode="bicubic", align_corners=False
+            img_gt_batched, scale_factor=0.25, mode="bicubic", align_corners=False
         )
         lq_up = F.interpolate(
             lq, size=img_gt.shape[-2:], mode="bicubic", align_corners=False
         )
+        # 去掉 batch 维度 → [1, H, W]
+        lq_up = lq_up.squeeze(0)
 
         # 小波变换在 lq 图上（上采样前/后均可）
         wavelet = self._dwt_tensor(lq_up)  # shape: [4, H/2, W/2]
