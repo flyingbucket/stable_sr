@@ -99,10 +99,10 @@ class LatentDiffusionWaveletAttn(LatentDiffusion):
 
     def init_from_ckpt(self, path, ignore_keys=list(), only_model=False):
         import re
-        import traceback
-        print(">>> [DDPM] init_from_ckpt() called <<<")
-        traceback.print_stack(limit=5)       
-        print(f"Model ID (self): {id(self)}")
+        # import traceback
+        # print(">>> [DDPM] init_from_ckpt() called <<<")
+        # traceback.print_stack(limit=5)       
+        # print(f"Model ID (self): {id(self)}")
 
         # 添加额外自动忽略 Cross-Attn 参数（比如 to_k 和 to_v）
         auto_skip_patterns = [
@@ -134,7 +134,6 @@ class LatentDiffusionWaveletAttn(LatentDiffusion):
 
         n_trainable = sum(p.numel() for p in self.cond_stage_model.parameters() if p.requires_grad)
         print(f"Cond stage trainable params: {n_trainable:,}")
-        breakpoint()
 
    # def init_from_ckpt(self, path, ignore_keys=list(), only_model=False):
     #         print(f"[WaveletAttn] Loading checkpoint from {path}")
@@ -147,58 +146,73 @@ class LatentDiffusionWaveletAttn(LatentDiffusion):
 
     #     # 调用父类的加载方法（实际上在 DDPM 中实现）
     #     super().init_from_ckpt(path, ignore_keys=ignore_keys, only_model=only_model)
-
     def get_input(self, batch, k=None, return_first_stage_outputs=False, force_c_encode=False,
-                    cond_key=None, return_original_cond=False, bs=None):
-            x_lq_up = batch["lq_image"].to(self.device).float()   # 已上采样的退化图
-            x_gt = batch["gt_image"].to(self.device).float()      # 原始图
-            wavelet_cond = batch["wavelet"].to(self.device).float()
+                cond_key=None, return_original_cond=False, bs=None):
 
-            # encode
-            z = self.get_first_stage_encoding(self.encode_first_stage(x_lq_up)).detach()
-            z_gt = self.get_first_stage_encoding(self.encode_first_stage(x_gt)).detach()
-            c = self.get_learned_conditioning(wavelet_cond)
+        # 图像数据加载
+        x_lq_up = batch["lq_image"].to(self.device).float()
+        x_gt = batch["gt_image"].to(self.device).float()
+        wavelet_cond = batch["wavelet"].to(self.device).float()
 
-            out = [z, c, z_gt]
+        # 编码图像为 latent
+        z = self.get_first_stage_encoding(self.encode_first_stage(x_lq_up)).detach()
+        z_gt = self.get_first_stage_encoding(self.encode_first_stage(x_gt)).detach()
 
-            if return_first_stage_outputs:
-                xrec = self.decode_first_stage(z)
-                out.extend([x_lq_up, x_gt, xrec])
-            if return_original_cond:
-                out.append(wavelet_cond)
-            return out
+        # 结构条件（来自 wavelet 子带）
+        struct_cond = self.get_learned_conditioning(wavelet_cond)  # [B, C, 64, 64]
+
+        # SR3 风格拼接条件（来自 lq 图像）
+        lq_cond = self.get_first_stage_encoding(self.encode_first_stage(x_lq_up)).detach()  # [B, C, 64, 64]
+
+        # 构造最终条件 dict（不含文本）
+        c = {
+            "c_crossattn": [torch.zeros((z.shape[0], 77, 768), device=z.device)],
+            "c_concat": [lq_cond],     # 参与拼接
+            "struct_cond": struct_cond # 参与结构引导
+        }
+
+        out = [z, c, z_gt]
+
+        if return_first_stage_outputs:
+            xrec = self.decode_first_stage(z)
+            out.extend([x_lq_up, x_gt, xrec])
+        if return_original_cond:
+            out.append(wavelet_cond)
+
+        return out
 
     # def get_input(self, batch, k=None, return_first_stage_outputs=False, force_c_encode=False,
-    #               cond_key=None, return_original_cond=False, bs=None):
-    #     # Extract original GT image (assume key 'image')
-    #     x_gt = batch[self.first_stage_key].to(self.device).float()  # [B, 1, H, W]
+    #                 cond_key=None, return_original_cond=False, bs=None):
+    #         x_lq_up = batch["lq_image"].to(self.device).float()   # 已上采样的退化图
+    #         x_gt = batch["gt_image"].to(self.device).float()      # 原始图
+    #         wavelet_cond = batch["wavelet"].to(self.device).float()
 
-    #     # Downsample + upsample (simulate simple degradation)
-    #     scale_factor = 1 / self.scale_factor if hasattr(self, 'scale_factor') else 0.25
-    #     x_lq = F.interpolate(x_gt, scale_factor=scale_factor, mode='bicubic', align_corners=False)
-    #     x_lq_up = F.interpolate(x_lq, size=x_gt.shape[-2:], mode='bicubic', align_corners=False)
+    #         # encode
+    #         z = self.get_first_stage_encoding(self.encode_first_stage(x_lq_up)).detach()
+    #         z_gt = self.get_first_stage_encoding(self.encode_first_stage(x_gt)).detach()
+            
+    #         # 编码结构条件
+    #         struct_cond = self.get_learned_conditioning(wavelet_cond)  # [B, 320, 64, 64] 通常
 
-    #     # Encode LQ image (input to diffusion)
-    #     encoder_lq = self.encode_first_stage(x_lq_up)
-    #     z_lq = self.get_first_stage_encoding(encoder_lq).detach()
+    #         # 构造 dummy text context（必须是 list 且形状正确）
+    #         B = z.shape[0]
+    #         context_dim = 768  # ← 根据 transformer_config.context_dim 来设置
+    #         dummy_context = torch.zeros(B, 77, context_dim, device=self.device)  # [B, 77, 768]
 
-    #     # Encode GT image (used as denoising target)
-    #     encoder_gt = self.encode_first_stage(x_gt)
-    #     z_gt = self.get_first_stage_encoding(encoder_gt).detach()
+    #         # 构造条件字典：struct cross-attn
+    #         c = {
+    #             "c_crossattn": [dummy_context],   # list 是必须的
+    #             "struct_cond": struct_cond        # 用于结构 cross-attention
+    #         }
+    #                 out = [z, c, z_gt]
 
-    #     # Conditioning from wavelet map
-    #     wavelet_cond = batch["wavelet"].to(self.device).float()
-    #     c = self.get_learned_conditioning(wavelet_cond)
+    #         if return_first_stage_outputs:
+    #             xrec = self.decode_first_stage(z)
+    #             out.extend([x_lq_up, x_gt, xrec])
+    #         if return_original_cond:
+    #             out.append(wavelet_cond)
+    #         return out
 
-    #     out = [z_lq, c, z_gt]
-
-    #     if return_first_stage_outputs:
-    #         xrec = self.decode_first_stage(z_lq)
-    #         out.extend([x_lq_up, x_gt, xrec])
-    #     if return_original_cond:
-    #         out.append(wavelet_cond)
-
-    #     return out
 
     def shared_step(self, batch, **kwargs):
         x, c,gt = self.get_input(batch, self.first_stage_key)
@@ -210,10 +224,15 @@ class LatentDiffusionWaveletAttn(LatentDiffusion):
         Override forward to provide GT latent (z_gt) for loss target.
         """
         t = torch.randint(0, self.num_timesteps, (x.shape[0],), device=self.device).long()
+
+        # 如果 conditioning_key 不为空，条件必需存在
         if self.model.conditioning_key is not None:
             assert c is not None
-            if self.cond_stage_trainable:
+
+            if self.cond_stage_trainable and not isinstance(c, dict):
                 c = self.get_learned_conditioning(c)
+
+        # 执行扩散损失计算
         return self.p_losses(x, c, t, gt=gt, *args, **kwargs)
 
     def p_losses(self, x_start, cond, t,  noise=None,**kwargs):
