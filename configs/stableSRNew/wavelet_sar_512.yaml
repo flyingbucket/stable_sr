@@ -1,7 +1,7 @@
 sf: 4
 model:
   base_learning_rate: 5.0e-05
-  target: ldm.models.diffusion.ddpm_wavelet.LatentDiffusionWaveletAttn
+  target: ldm.models.diffusion.ddpm_wavelet.LatentDiffusionWaveletCS
   params:
     linear_start: 0.00085
     linear_end: 0.0120
@@ -9,8 +9,9 @@ model:
     log_every_t: 200
     timesteps: 1000
     first_stage_key: lq_image
-    cond_stage_key: wavelet
-    conditioning_key: hybrid
+    cond_stage_key: image
+    # conditioning_key: concat_struct
+    conditioning_key: concat
   
     image_size: 512
     channels: 4
@@ -21,8 +22,7 @@ model:
     use_ema: False
     ckpt_path: "/home/lml/workspace/stablesr/ckpt/v2-1_512-ema-pruned.ckpt"
     ignore_keys:
-      - "first_stage_model.encoder"
-      - "first_stage_model.decoder"
+      - "first_stage_model"
       - "model.diffusion_model.*.attn2.to_k"
       - "model.diffusion_model.*.attn2.to_v"   
     
@@ -34,17 +34,17 @@ model:
       target: ldm.modules.diffusionmodules.openaimodel.UNetModelDualcondV2
       params:
         image_size: 32
-        in_channels: 4
+        in_channels: 12
         out_channels: 4
         model_channels: 320
         attention_resolutions: [4, 2, 1]
         num_res_blocks: 2
         channel_mult: [1, 2, 4, 4]
         num_head_channels: 64
-        use_spatial_transformer: True
+        use_spatial_transformer: False
         use_linear_in_transformer: True
         transformer_depth: 1
-        context_dim: 320
+        # context_dim: None 
         use_checkpoint: False
         legacy: False
         semb_channels: 256
@@ -68,13 +68,20 @@ model:
         lossconfig:
           target: torch.nn.Identity
 
+    # cond_stage_config:
+    #   target: ldm.models.cond_stage_model.WaveletBicubicResidualEncoder
+    #   params:
+    #     in_channels: 4
+    #     out_channels: 256
+    #     down_factor: 8
+    #     num_resblocks: 3
     cond_stage_config:
       target: ldm.models.cond_stage_model.WaveletBicubicResidualEncoder
       params:
         in_channels: 4
-        out_channels: 320
-        down_factor: 4
+        out_channels: 256
         num_resblocks: 3
+        multiscale_sizes: [128, 64, 32, 16, 8]
 
     structcond_stage_config:
       target: ldm.modules.diffusionmodules.openaimodel.EncoderUNetModelWT
@@ -97,7 +104,7 @@ model:
         use_scale_shift_norm: False
         resblock_updown: False
         use_new_attention_order: False
-
+        use_spatial_transformer: False
 degradation:
   use_jpeg: False
   resize_prob: [0.2, 0.7, 0.1]
