@@ -2,6 +2,7 @@ import sys
 import os
 sys.path.append(os.path.abspath("."))  # 加入项目根目录路径
 print(f"[INFO] sys.path: {sys.path}")  # 打印当前 sys.path 以确认路径设置
+
 import os
 import torch
 from omegaconf import OmegaConf
@@ -15,8 +16,8 @@ from basicsr.data.wavelet_dataset import WaveletSRDataset
 @torch.no_grad()
 def main():
     # === 1. 设置配置和 ckpt 路径 ===
-    config_path = "configs/stableSRNew/wavelet_sar_512.yaml"
-    ckpt_path = "./logs/2025-07-10T16-25-18_w/checkpoints/epoch=000001.ckpt"  # 改成你的路径
+    config_path = "../configs/stableSRNew/wavelet_sar_512.yaml"
+    ckpt_path = "../logs/2025-07-10T16-25-18_w/checkpoints/epoch=000001.ckpt"  # 改成你的路径
 
     # === 2. 加载 config & 模型 ===
     config = OmegaConf.load(config_path)
