@@ -402,7 +402,9 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
         loss_dict.update({f'{prefix}/loss_simple': loss_simple.mean()})
 
         # logvar optional
-        logvar_t = self.logvar[t].to(self.device)
+        t_cpu = t.detach().cpu()
+        logvar_t = self.logvar[t_cpu].to(self.device)
+        # logvar_t = self.logvar[t].to(self.device)
         loss = loss_simple / torch.exp(logvar_t) + logvar_t
         if self.learn_logvar:
             loss_dict.update({f'{prefix}/loss_gamma': loss.mean()})
