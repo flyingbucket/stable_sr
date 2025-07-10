@@ -1400,6 +1400,7 @@ class LatentDiffusion(DDPM):
     def sample_log(self,cond,batch_size,ddim, ddim_steps,**kwargs):
 
         if ddim:
+            # raise NotImplementedError("DDIM sampling is not implemented in this version of the code.")
             ddim_sampler = DDIMSampler(self)
             shape = (self.channels, self.image_size, self.image_size)
             samples, intermediates =ddim_sampler.sample(ddim_steps,batch_size,
