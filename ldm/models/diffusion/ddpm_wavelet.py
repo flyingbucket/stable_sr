@@ -402,9 +402,10 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
         loss_dict.update({f'{prefix}/loss_simple': loss_simple.mean()})
 
         # logvar optional
-        t_cpu = t.detach().cpu()
-        logvar_t = self.logvar[t_cpu].to(self.device)
-        # logvar_t = self.logvar[t].to(self.device)
+        t_cpu = t.detach().cpu()  
+        logvar_t = self.logvar[t_cpu].to(self.device)  # this version is compatible with torch 1.13 and newer
+        # logvar_t = self.logvar[t].to(self.device) # using pip requirements.txt,torch 1.13 and newer version will be installed causing error
+
         loss = loss_simple / torch.exp(logvar_t) + logvar_t
         if self.learn_logvar:
             loss_dict.update({f'{prefix}/loss_gamma': loss.mean()})
