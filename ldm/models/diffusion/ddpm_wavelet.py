@@ -160,7 +160,6 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
         expanded_ignore = list(set(ignore_keys) | auto_ignore)
         # 调用父类实现
         super().init_from_ckpt(path, ignore_keys=expanded_ignore, only_model=only_model)
-        
         n_trainable = sum(p.numel() for p in self.first_stage_model.parameters() if p.requires_grad)
         print(f"First stage trainable params: {n_trainable:,}")
 
@@ -205,7 +204,7 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
         return out
 
     def log_images(self, batch, N=8, n_row=4, sample=True, ddim_steps=200, ddim_eta=1., return_keys=None,
-                   quantize_denoised=True, inpaint=False, plot_denoise_rows=False, plot_progressive_rows=True,
+                   quantize_denoised=True, inpaint=False, plot_denoise_rows=False, plot_progressive_rows=False,
                    plot_diffusion_rows=True, **kwargs):
 
         # use_ddim = ddim_steps is not None
@@ -295,13 +294,13 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
                 x_samples = self.decode_first_stage(samples.to(self.device))
                 log["samples_outpainting"] = x_samples
 
-        if plot_progressive_rows:
-            with self.ema_scope("Plotting Progressives"):
-                img, progressives = self.progressive_denoising(c,
-                                                               shape=(self.channels, self.image_size, self.image_size),
-                                                               batch_size=N)
-            prog_row = self._get_denoise_row_from_list(progressives, desc="Progressive Generation")
-            log["progressive_row"] = prog_row
+        # if plot_progressive_rows:
+        #     with self.ema_scope("Plotting Progressives"):
+        #         img, progressives = self.progressive_denoising(c,
+        #                                                        shape=(self.channels, self.image_size, self.image_size),
+        #                                                        batch_size=N)
+        #     prog_row = self._get_denoise_row_from_list(progressives, desc="Progressive Generation")
+        #     log["progressive_row"] = prog_row
 
         if return_keys:
             if np.intersect1d(list(log.keys()), return_keys).shape[0] == 0:
