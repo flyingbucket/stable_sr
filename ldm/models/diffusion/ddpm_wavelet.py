@@ -15,12 +15,11 @@ from einops import rearrange, repeat
 from tqdm import tqdm
 from torchvision.utils import make_grid
 from pytorch_lightning.utilities.distributed import rank_zero_only
-
+from ldm.modules.diffusionmodules.util import make_beta_schedule, extract_into_tensor, noise_like
 from ldm.util import default, instantiate_from_config
 # from ldm.modules.ema import LitEma
 # from ldm.modules.distributions.distributions import normal_kl, DiagonalGaussianDistribution
 from ldm.models.autoencoder import IdentityFirstStage, AutoencoderKL
-# from ldm.modules.diffusionmodules.util import make_beta_schedule, extract_into_tensor, noise_like
 # from ldm.models.diffusion.ddim import DDIMSampler
 
 # from basicsr.utils import DiffJPEG, USMSharp
@@ -346,6 +345,11 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
         # else:
         #     samples, intermediates = self.sample(cond=cond, batch_size=batch_size,
         #                                          return_intermediates=True,**kwargs)
+        if self.model.conditioning_key=='concat':
+            c_concat = cond['c_concat'][0]
+            cond['c_concat'] = [torch.cat([c_concat, c_concat], dim=1)]
+        else:
+            raise NotImplementedError(f"Conditioning key '{self.conditioning_key}' not supported for sampling.")
         samples, intermediates = self.sample(cond=cond, batch_size=batch_size,
                                                 return_intermediates=True,**kwargs)
 
