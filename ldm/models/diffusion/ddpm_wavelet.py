@@ -57,6 +57,7 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
                  conditioning_key=None,
                  scale_factor=1.0,
                  scale_by_std=False,
+                 only_model=False,
                  unfrozen_first_stage=True,
                  unfrozen_unet=False,
                  unfrozen_cond_stage=True,
@@ -80,8 +81,9 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
 
         ckpt_path = kwargs.pop("ckpt_path", None)
         ignore_keys = kwargs.pop("ignore_keys", [])
+        only_model = kwargs.pop("only_model", False)    
         if ckpt_path is not None:
-            self.init_from_ckpt(ckpt_path, ignore_keys)
+            self.init_from_ckpt(ckpt_path, ignore_keys, only_model=only_model)
 
         print('>>>>>>>>>>>>>>>> model >>>>>>>>>>>>>>>>>>')
         for name, param in self.model.named_parameters():
@@ -344,11 +346,12 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
         # else:
         #     samples, intermediates = self.sample(cond=cond, batch_size=batch_size,
         #                                          return_intermediates=True,**kwargs)
-        if self.model.conditioning_key=='concat':
-            c_concat = cond['c_concat'][0]
-            cond['c_concat'] = [torch.cat([c_concat, c_concat], dim=1)]
-        else:
-            raise NotImplementedError(f"Conditioning key '{self.conditioning_key}' not supported for sampling.")
+        # print("[WARNING] We should not have to concat c_concat to itself to satisfy the input channels of the model.")
+        # if self.model.conditioning_key=='concat':
+        #     c_concat = cond['c_concat'][0]
+        #     cond['c_concat'] = [torch.cat([c_concat, c_concat], dim=1)]
+        # else:
+        #     raise NotImplementedError(f"Conditioning key '{self.conditioning_key}' not supported for sampling.")
         samples, intermediates = self.sample(cond=cond, batch_size=batch_size,
                                                 return_intermediates=True,**kwargs)
 
@@ -382,8 +385,8 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
         gt = kwargs['gt']
         noise = default(noise, lambda: torch.randn_like(gt))
         x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
-        if self.model.conditioning_key in ['concat', 'hybird']:
-            x_noisy = torch.cat([x_noisy, cond['c_concat'][0]], dim=1)
+        # if self.model.conditioning_key in ['concat', 'hybird']:
+        #     x_noisy = torch.cat([x_noisy, cond['c_concat'][0]], dim=1)
         if cond['struct_cond'] is None:
             raise ValueError("Conditioning 'struct_cond' is None in p_losses.")
         model_output = self.apply_model(x_noisy, t, cond)
