@@ -36,17 +36,6 @@ class WaveletSRDataset(Dataset):
         self.crop_size = crop_size
         self.wavelet = wavelet
 
-#     def __init__(self, image_dir, crop_size=None, wavelet="haar"):
-#         """
-#         Args:
-#             image_dir (str): 包含单通道 PNG 图像的目录。
-#             crop_size (int or None): 可选裁剪尺寸，默认不裁剪。
-#             wavelet (str): 小波基名称，如 'haar'、'db1' 等。
-#         """
-#         self.image_paths = sorted(glob(os.path.join(image_dir, "*.png")))
-#         self.crop_size = crop_size
-#         self.wavelet = wavelet
-
     def _load_image(self, path):
         img = Image.open(path).convert("L")  # 转为单通道灰度图
         tensor = to_tensor(img)  # [1, H, W], range [0,1]
@@ -98,14 +87,6 @@ class WaveletSRDataset(Dataset):
 
         # 小波变换在 lq 图上（上采样前/后均可）
         wavelet = self._dwt_tensor(lq_up)  # shape: [4, H/2, W/2]
-
-        # 如果你希望 wavelet 与 image 对齐大小，可以上采样：
-        # wavelet = F.interpolate(
-        #     wavelet.unsqueeze(0),
-        #     size=img_gt.shape[-2:],
-        #     mode="bilinear",
-        #     align_corners=False,
-        # ).squeeze(0)
 
         return {
             "gt_image": img_gt,  # [1, H, W]
