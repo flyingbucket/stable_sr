@@ -140,3 +140,4 @@ venv.bak/
 outputs/
 configs/*
 debug_out/
+*.sh
