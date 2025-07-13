@@ -1,5 +1,5 @@
 # ignore my inspection trail
-inspect.ipynb
+*.ipynb
 # ignore .vscode
 .vscode/
 
