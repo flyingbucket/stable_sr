@@ -3350,28 +3350,41 @@ class DiffusionWrapper(pl.LightningModule):
         super().__init__()
         self.diffusion_model = instantiate_from_config(diff_model_config)
         self.conditioning_key = conditioning_key
-        assert self.conditioning_key in [None, 'concat', 'crossattn', 'hybrid', 'adm']
+        assert self.conditioning_key in [None, 'concat', 'struct_only', 'concat_only', 'crossattn', 'hybrid', 'adm']
 
     def forward(self, x, t, c_concat: list = None, c_crossattn: list = None, struct_cond=None, seg_cond=None):
         if self.conditioning_key is None:
             out = self.diffusion_model(x, t)
+
+        elif self.conditioning_key == 'struct_only':
+            assert struct_cond is not None, "struct_cond must be provided when conditioning_key is 'struct_only'"
+            out = self.diffusion_model(x, t, struct_cond=struct_cond)
+
+        elif self.conditioning_key=='concat_only':
+            xc= torch.cat([x] + c_concat, dim=1)
+            out=self.diffusion_model(xc, t, struct_cond=None)
+
         elif self.conditioning_key == 'concat':
             xc = torch.cat([x] + c_concat, dim=1)
             # out = self.diffusion_model(xc, t)
             out = self.diffusion_model(xc, t, struct_cond=struct_cond)
+
         elif self.conditioning_key == 'crossattn':
             cc = torch.cat(c_crossattn, 1)
             if seg_cond is None:
                 out = self.diffusion_model(x, t, context=cc, struct_cond=struct_cond)
             else:
                 out = self.diffusion_model(x, t, context=cc, struct_cond=struct_cond, seg_cond=seg_cond)
+
         elif self.conditioning_key == 'hybrid':
             xc = torch.cat([x] + c_concat, dim=1)
             cc = torch.cat(c_crossattn, 1)
             out = self.diffusion_model(xc, t, context=cc)
+
         elif self.conditioning_key == 'adm':
             cc = c_crossattn[0]
             out = self.diffusion_model(x, t, y=cc)
+
         else:
             raise NotImplementedError()
 
