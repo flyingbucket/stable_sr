@@ -918,12 +918,12 @@ class AutoencoderKLResi(pl.LightningModule):
         x = 2.*(x-x.min())/(x.max()-x.min()) - 1.
         return x
 
-from .DGConv import (
-    DGConvModule, 
-    OptimizedDGConvModule, 
-    LightweightDGConvModule, 
-    MemoryEfficientDGConvModule
-)
+# from .DGConv import (
+#     DGConvModule, 
+#     OptimizedDGConvModule, 
+#     LightweightDGConvModule, 
+#     MemoryEfficientDGConvModule
+# )
 
 class AutoencoderKLPlus(pl.LightningModule):
     def __init__(self,
