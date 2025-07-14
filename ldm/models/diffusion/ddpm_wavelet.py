@@ -184,9 +184,6 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
         struct_cond = self.get_learned_conditioning(wavelet_cond)  # [B, C, 64, 64]
 
         lq_cond = self.get_first_stage_encoding(self.encode_first_stage(x_lq_up)).detach()  # [B, C, 64, 64]
-        # print("z.shape =", z.shape)
-        # print("x_lq_up.shape =", x_lq_up.shape)
-        # print("lq_cond.shape =", lq_cond.shape)
         # 构造最终条件 dict（不含文本）
         c = {
             "c_crossattn": [torch.zeros((z.shape[0], 77, 768), device=z.device)],
@@ -199,7 +196,7 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
         out = [z, c, z_gt]
 
         if return_first_stage_outputs:
-            xrec = self.decode_first_stage(z)
+            xrec = self.decode_first_stage(z_gt)
             out.extend([x_lq_up, x_gt, xrec])
         if return_original_cond:
             out.append(wavelet_cond)
@@ -229,7 +226,7 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
         print(f"c_concat shape = {c['c_concat'][0].shape}")
         N = min(x.shape[0], N)
         n_row = min(x.shape[0], n_row)
-        log["inputs"] = x
+        log["inputs"] = x_gt
         log["reconstruction"] = xrec
 
         if plot_diffusion_rows:
