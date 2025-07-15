@@ -118,87 +118,58 @@ class RealESRGANDataset(data.Dataset):
         self.pulse_tensor = torch.zeros(21, 21).float()  # convolving with pulse tensor brings no blurry effect
         self.pulse_tensor[10, 10] = 1
 
+
     def __getitem__(self, index):
         if self.file_client is None:
             self.file_client = FileClient(self.io_backend_opt.pop('type'), **self.io_backend_opt)
 
-        # -------------------------------- Load gt images -------------------------------- #
-        # Shape: (h, w, c); channel order: BGR; image range: [0, 1], float32.
         gt_path = self.paths[index]
+
         def load_npy(gt_path):
-            img_gt = np.load(gt_path)  # shape: (H, W, C) — e.g., (512, 512, 5)
+            img_gt = np.load(gt_path)  # shape: (H, W) or (H, W, C)
             if img_gt.ndim == 2:
                 img_gt = np.expand_dims(img_gt, axis=-1)  # 灰度图 → (H, W, 1)
             return img_gt
-        # avoid errors caused by high latency in reading files
+
         retry = 3
         while retry > 0:
             try:
                 if gt_path.endswith(".npy"):
-                    img_gt=load_npy(gt_path)
-                    # img_gt = np.load(gt_path)  # shape: (H, W, C) — e.g., (512, 512, 5)
-
-                    # if img_gt.ndim == 2:
-                    #     img_gt = np.expand_dims(img_gt, axis=-1)  # 灰度图 → (H, W, 1)
-
-                    # elif img_gt.ndim == 3:
-                        # img_gt = np.transpose(img_gt, (2, 0, 1))  # HWC → CHW
-
-                    # img_gt = torch.from_numpy(img_gt).float()  # (C, H, W)
-            
+                    img_gt = load_npy(gt_path)
+                else:
+                    img_bytes = self.file_client.get(gt_path, 'gt')  # 【修复1】
+                    img_gt = imfrombytes(img_bytes, float32=True)
+                    if img_gt.ndim == 2:  # 灰度图支持
+                        img_gt = np.expand_dims(img_gt, axis=-1)
             except (IOError, OSError) as e:
-                # logger = get_root_logger()
-                # logger.warn(f'File client error: {e}, remaining retry times: {retry - 1}')
-                # change another file to read
-                index = random.randint(0, self.__len__()-1)
+                index = random.randint(0, self.__len__() - 1)
                 gt_path = self.paths[index]
-                time.sleep(1)  # sleep 1s for occasional server congestion
+                time.sleep(1)
             else:
                 break
             finally:
                 retry -= 1
 
-        resample_trail=0
-        if gt_path.endswith(".npy"):
-            img_size = os.path.getsize(gt_path)
-            img_size = img_size/1024
-            while img_gt.shape[0] * img_gt.shape[1] < 384*384 or img_size<100:
-                index = random.randint(0, self.__len__()-1)
-                gt_path = self.paths[index]
+        # 过滤小尺寸或损坏文件
+        resample_trail = 0
+        img_size = os.path.getsize(gt_path) / 1024
+        while img_gt.shape[0] * img_gt.shape[1] < 384 * 384 or img_size < 100:
+            index = random.randint(0, self.__len__() - 1)
+            gt_path = self.paths[index]
+            time.sleep(0.1)
 
-                time.sleep(0.1)  # sleep 1s for occasional server congestion
-                img_gt=load_npy(gt_path)
-                # img_gt = np.load(gt_path)
-                # if img_gt.ndim == 2:
-                #     img_gt = np.expand_dims(img_gt, axis=-1)
-                # elif img_gt.ndim == 3 and img_gt.shape[0] in [1, 3]:
-                #     img_gt = np.transpose(img_gt, (1, 2, 0))
-                img_size = os.path.getsize(gt_path)
-                img_size = img_size/1024
-                resample_trail += 1
-                if resample_trail > 100:
-                    raise ValueError(
-                        f"Failed to load a valid image after multiple attempts: {gt_path}")
-        else:
-            img_gt = imfrombytes(img_bytes, float32=True)
-            # filter the dataset and remove images with too low quality
-            img_size = os.path.getsize(gt_path)
-            img_size = img_size/1024
-
-            while img_gt.shape[0] * img_gt.shape[1] < 384*384 or img_size<100:
-                index = random.randint(0, self.__len__()-1)
-                gt_path = self.paths[index]
-
-                time.sleep(0.1)  # sleep 1s for occasional server congestion
-                img_bytes = self.file_client.get(gt_path, 'gt')
+            if gt_path.endswith(".npy"):
+                img_gt = load_npy(gt_path)
+            else:
+                img_bytes = self.file_client.get(gt_path, 'gt')  # 【修复2】
                 img_gt = imfrombytes(img_bytes, float32=True)
-                img_size = os.path.getsize(gt_path)
-                img_size = img_size/1024
-                resample_trail += 1
-                if resample_trail > 100:
-                    raise ValueError(
-                        f"Failed to load a valid image after multiple attempts: {gt_path}")
+                if img_gt.ndim == 2:  # 灰度图支持
+                    img_gt = np.expand_dims(img_gt, axis=-1)
 
+            img_size = os.path.getsize(gt_path) / 1024
+            resample_trail += 1
+            if resample_trail > 100:
+                raise ValueError(f"Failed to load a valid image after multiple attempts: {gt_path}")
         # -------------------- Do augmentation for training: flip, rotation -------------------- #
         img_gt = augment(img_gt, self.opt['use_hflip'], self.opt['use_rot'])
 
@@ -286,6 +257,7 @@ class RealESRGANDataset(data.Dataset):
 
         return_d = {'gt': img_gt, 'kernel1': kernel, 'kernel2': kernel2, 'sinc_kernel': sinc_kernel, 'gt_path': gt_path}
         return return_d
+
 
     def __len__(self):
         return len(self.paths)
