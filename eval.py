@@ -1,10 +1,12 @@
 import os
+import shutil
 import argparse
 import torch
 import numpy as np
+from tqdm import tqdm
 from omegaconf import OmegaConf
 from ldm.util import instantiate_from_config
-from torchmetrics.image.fid import FrechetInceptionDistance
+# from torchmetrics.image.fid import FrechetInceptionDistance
 # from ldm.models.diffusion.ddpm_ori_so import LatentDiffusionOriSO
 # from ldm.models.diffusion.ddpm_wavelet import LatentDiffusionWaveletCS
 from torch.utils.data import DataLoader
@@ -148,6 +150,8 @@ def evaluate(logdir, ckpt_name):
     print(f"FID: {fid:.4f}")
     print(f"ENL: {np.mean(enl_list):.4f}")
     print(f"EPI: {np.mean(epi_list):.4f}")
+    shutil.rmtree(fid_real)
+    shutil.rmtree(fid_fake)  
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
