@@ -557,7 +557,7 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
         if start_T is not None:
             timesteps = min(timesteps, start_T)
 
-        iterator = tqdm(reversed(range(0, timesteps)), desc='Sampling t', total=timesteps) if verbose else reversed(
+        iterator = tqdm(reversed(range(0, timesteps)), desc='Sampling t', total=timesteps, leave=False) if verbose else reversed(
             range(0, timesteps))
 
         if mask is not None:
