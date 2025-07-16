@@ -211,13 +211,9 @@ class LatentDiffusionOriSO(LatentDiffusion):
                       bs=N)
 
         z, c, z_gt, x_lq_up, x_gt, xrec = outs[:6]  # 不需要 wavelet_cond
-        # z, c, _, xc, x, xrec = outs[:6]  # 注意顺序重新对齐
         c["c_crossattn"] = c["c_crossattn"][0]  # from [tensor] to tensor
-        print(type(c["c_crossattn"]))  # ensure c_crossattn is a tensor
         x = z_gt# GT image
         xc = x_lq_up  # conditioning image
-        print(f"x.shape = {x.shape}") 
-        print(f"c_concat shape = {c['c_concat'][0].shape}")
         N = min(x.shape[0], N)
         n_row = min(x.shape[0], n_row)
         log["input_hq"] = x_gt
