@@ -64,6 +64,14 @@ def evaluate(logdir, ckpt_name):
     psnr_list, ssim_list, lpips_list, enl_list, epi_list = [], [], [], [], []
     img_count = 0
 
+    def min_max_normalize(img):
+        img_min = np.min(img)
+        img_max = np.max(img)
+        if img_max - img_min < 1e-8:
+            return np.zeros_like(img, dtype=np.uint8)
+        norm_img = (img - img_min) / (img_max - img_min) * 255.0
+        return norm_img.astype(np.uint8)
+    
     with torch.no_grad():
         with tqdm(total=len(dataloader), desc="Processing batches",leave=True) as pbar:
         # for batch in dataloader:
@@ -77,8 +85,8 @@ def evaluate(logdir, ckpt_name):
                 B = input_hq.shape[0]
 
                 for i in range(B):
-                    gt = input_hq[i,0]
-                    pred = samples[i,0]
+                    gt = min_max_normalize(input_hq[i,0])
+                    pred = min_max_normalize(samples[i,0])
 
                     # 保存 FID 图片
                     gt_img = (gt * 255).clip(0,255).astype(np.uint8)
