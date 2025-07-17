@@ -6,9 +6,6 @@ import numpy as np
 from tqdm import tqdm
 from omegaconf import OmegaConf
 from ldm.util import instantiate_from_config
-# from torchmetrics.image.fid import FrechetInceptionDistance
-# from ldm.models.diffusion.ddpm_ori_so import LatentDiffusionOriSO
-# from ldm.models.diffusion.ddpm_wavelet import LatentDiffusionWaveletCS
 from torch.utils.data import DataLoader
 from basicsr.data.wavelet_dataset import WaveletSRDataset
 from skimage.metrics import peak_signal_noise_ratio as compare_psnr
@@ -46,17 +43,12 @@ def evaluate(logdir, ckpt_name):
         config.data.params.validation.params.gt_path = args.gt_path
 
     # === 加载模型 ===
-    # model = LatentDiffusionWaveletCS(**config.model.params)
     ckpt_path = os.path.join(logdir, "checkpoints", ckpt_name)
     model = instantiate_from_config(config.model)
     model.init_from_ckpt(ckpt_path)
     model.to(device).eval()
 
     # === 加载数据 ===
-    # data_params = config.data.params.validation.params
-    # dataset = instantiate_from_config(config.data)
-    # dataset = WaveletSRDataset(data_params, split="val")
-    # dataloader = DataLoader(dataset, batch_size=2, shuffle=False, num_workers=2)
     data = instantiate_from_config(config.data)
     data.setup()
     dataloader = data.val_dataloader()
@@ -68,79 +60,62 @@ def evaluate(logdir, ckpt_name):
     fid_fake = os.path.join(logdir, "fid_fake")
     os.makedirs(fid_real, exist_ok=True)
     os.makedirs(fid_fake, exist_ok=True)
-    # fid_metric = FrechetInceptionDistance(feature=2048, normalize=True).to(device)
 
     psnr_list, ssim_list, lpips_list, enl_list, epi_list = [], [], [], [], []
     img_count = 0
 
-    max_iter=10
-    iter_count = 0
     with torch.no_grad():
+        with tqdm(total=len(dataloader), desc="Processing batches",leave=True) as pbar:
         # for batch in dataloader:
-        for batch in tqdm(dataloader, desc="Overall Progress", leave=True):   
-            batch = {k: v.to(device) for k, v in batch.items()}
-            log = model.log_images(batch, N=batch['lq_image'].shape[0], sample=True, plot_diffusion_rows=False, plot_progressive_rows=False)
+            for batch in dataloader:   
+                batch = {k: v.to(device) for k, v in batch.items()}
+                log = model.log_images(batch, N=batch['lq_image'].shape[0], sample=True, plot_diffusion_rows=False, plot_progressive_rows=False)
 
-            input_hq = log["input_hq"].detach().cpu().numpy()  # [B,1,H,W]
-            samples = log["samples"].detach().cpu().numpy()    # [B,1,H,W]
+                input_hq = log["input_hq"].detach().cpu().numpy()  # [B,1,H,W]
+                samples = log["samples"].detach().cpu().numpy()    # [B,1,H,W]
 
-            B = input_hq.shape[0]
+                B = input_hq.shape[0]
 
-            for i in range(B):
-                gt = input_hq[i,0]
-                pred = samples[i,0]
+                for i in range(B):
+                    gt = input_hq[i,0]
+                    pred = samples[i,0]
 
-                # # === 转为 tensor ===
-                # gt_tensor = torch.from_numpy(gt).unsqueeze(0).repeat(3,1,1).to(device).float()
-                # pred_tensor = torch.from_numpy(pred).unsqueeze(0).repeat(3,1,1).to(device).float()
+                    # 保存 FID 图片
+                    gt_img = (gt * 255).clip(0,255).astype(np.uint8)
+                    pred_img = (pred * 255).clip(0,255).astype(np.uint8)
 
-                # # torchmetrics FID 需要 [B, C, H, W]，输入范围 [0, 1]
-                # gt_tensor = (gt_tensor + 1) / 2  # 如果数据是[-1,1]，归一化到[0,1]
-                # pred_tensor = (pred_tensor + 1) / 2
+                    cv2.imwrite(os.path.join(fid_real, f"{img_count}.png"), gt_img)
+                    cv2.imwrite(os.path.join(fid_fake, f"{img_count}.png"), pred_img)
 
-                # fid_metric.update(gt_tensor.unsqueeze(0), real=True)
-                # fid_metric.update(pred_tensor.unsqueeze(0), real=False)
+                    img_count += 1
 
+                    # === PSNR & SSIM ===
+                    psnr = compare_psnr(gt, pred, data_range=1.0)
+                    ssim = compare_ssim(gt, pred, data_range=1.0)
+                    psnr_list.append(psnr)
+                    ssim_list.append(ssim)
 
-                # 保存 FID 图片
-                gt_img = (gt * 255).clip(0,255).astype(np.uint8)
-                pred_img = (pred * 255).clip(0,255).astype(np.uint8)
+                    # === LPIPS ===
+                    gt_tensor = torch.from_numpy(gt).unsqueeze(0).unsqueeze(0).to(device).float()
+                    pred_tensor = torch.from_numpy(pred).unsqueeze(0).unsqueeze(0).to(device).float()
+                    lp = lpips_fn(gt_tensor.repeat(1,3,1,1), pred_tensor.repeat(1,3,1,1))
+                    lpips_list.append(lp.item())
 
-                cv2.imwrite(os.path.join(fid_real, f"{img_count}.png"), gt_img)
-                cv2.imwrite(os.path.join(fid_fake, f"{img_count}.png"), pred_img)
+                    # === ENL ===
+                    mean_pred = np.mean(pred)
+                    var_pred = np.var(pred)
+                    enl = (mean_pred ** 2) / (var_pred + 1e-8)
+                    enl_list.append(enl)
 
-                img_count += 1
+                    # === EPI（Sobel边缘强度比）===
+                    gt_edges = cv2.Sobel(gt, cv2.CV_64F, 1, 1, ksize=3)
+                    pred_edges = cv2.Sobel(pred, cv2.CV_64F, 1, 1, ksize=3)
+                    epi = np.sum(np.abs(pred_edges)) / (np.sum(np.abs(gt_edges)) + 1e-8)
+                    epi_list.append(epi)
 
-                # === PSNR & SSIM ===
-                psnr = compare_psnr(gt, pred, data_range=1.0)
-                ssim = compare_ssim(gt, pred, data_range=1.0)
-                psnr_list.append(psnr)
-                ssim_list.append(ssim)
-
-                # === LPIPS ===
-                gt_tensor = torch.from_numpy(gt).unsqueeze(0).unsqueeze(0).to(device).float()
-                pred_tensor = torch.from_numpy(pred).unsqueeze(0).unsqueeze(0).to(device).float()
-                lp = lpips_fn(gt_tensor.repeat(1,3,1,1), pred_tensor.repeat(1,3,1,1))
-                lpips_list.append(lp.item())
-
-                # === ENL ===
-                mean_pred = np.mean(pred)
-                var_pred = np.var(pred)
-                enl = (mean_pred ** 2) / (var_pred + 1e-8)
-                enl_list.append(enl)
-
-                # === EPI（Sobel边缘强度比）===
-                gt_edges = cv2.Sobel(gt, cv2.CV_64F, 1, 1, ksize=3)
-                pred_edges = cv2.Sobel(pred, cv2.CV_64F, 1, 1, ksize=3)
-                epi = np.sum(np.abs(pred_edges)) / (np.sum(np.abs(gt_edges)) + 1e-8)
-                epi_list.append(epi)
-
-            iter_count += 1
-            if iter_count > max_iter:
-                break
+                pbar.update(1)
     # === FID ===
     fid = fid_score.calculate_fid_given_paths([fid_real, fid_fake], batch_size=2, device=device, dims=2048)
-    # fid = fid_metric.compute().item()
 
     # === 打印结果 ===
     print("==== 评估指标 ====")
