@@ -21,6 +21,7 @@ from ldm.util import default, instantiate_from_config
 # from ldm.modules.ema import LitEma
 # from ldm.modules.distributions.distributions import normal_kl, DiagonalGaussianDistribution
 from ldm.models.autoencoder import IdentityFirstStage, AutoencoderKL
+from ldm.models.autoencoder_plus import AutoencoderKLPlus
 # from ldm.models.diffusion.ddim import DDIMSampler
 
 # from basicsr.utils import DiffJPEG, USMSharp
@@ -256,17 +257,19 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
                 denoise_grid = self._get_denoise_row_from_list(z_denoise_row)
                 log["denoise_row"] = denoise_grid
 
-            if quantize_denoised and not isinstance(self.first_stage_model, AutoencoderKL) and not isinstance(
-                    self.first_stage_model, IdentityFirstStage):
-                # also display when quantizing x0 while sampling
-                with self.ema_scope("Plotting Quantized Denoised"):
-                    samples, z_denoise_row = self.sample_log(cond=c,batch_size=N,ddim=use_ddim,
-                                                             ddim_steps=ddim_steps,eta=ddim_eta,
-                                                             quantize_denoised=True)
-                    # samples, z_denoise_row = self.sample(cond=c, batch_size=N, return_intermediates=True,
-                    #                                      quantize_denoised=True)
-                x_samples = self.decode_first_stage(samples.to(self.device))
-                log["samples_x0_quantized"] = x_samples
+            # # if quantize_denoised and not isinstance(self.first_stage_model, AutoencoderKL) and not isinstance(
+            # #         self.first_stage_model, IdentityFirstStage):
+            # if quantize_denoised and not isinstance(self.first_stage_model, (AutoencoderKL, AutoencoderKLPlus, IdentityFirstStage)):
+            #     # 你不会走到这里
+            #     # also display when quantizing x0 while sampling
+            #     with self.ema_scope("Plotting Quantized Denoised"):
+            #         samples, z_denoise_row = self.sample_log(cond=c,batch_size=N,ddim=use_ddim,
+            #                                                  ddim_steps=ddim_steps,eta=ddim_eta,
+            #                                                  quantize_denoised=True)
+            #         # samples, z_denoise_row = self.sample(cond=c, batch_size=N, return_intermediates=True,
+            #         #                                      quantize_denoised=True)
+            #     x_samples = self.decode_first_stage(samples.to(self.device))
+            #     log["samples_x0_quantized"] = x_samples
 
             if inpaint:
                 # make a simple center square
