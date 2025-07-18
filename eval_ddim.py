@@ -13,56 +13,11 @@ from skimage.metrics import structural_similarity as compare_ssim
 import lpips
 from pytorch_fid import fid_score
 import cv2
-import copy
-from einops import repeat
-
-def space_timesteps(num_timesteps, section_counts):
-    """
-    Create a list of timesteps to use from an original diffusion process,
-    given the number of timesteps we want to take from equally-sized portions
-    of the original process.
-
-    这个函数会从原始的1000个时间步中，均匀地选择指定数量的时间步。
-    例如，如果要250步，会从0-999中均匀选择250个时间步。
-    """
-    if isinstance(section_counts, str):
-        if section_counts.startswith("ddim"):
-            desired_count = int(section_counts[len("ddim"):])
-            for i in range(1, num_timesteps):
-                if len(range(0, num_timesteps, i)) == desired_count:
-                    return set(range(0, num_timesteps, i))
-            raise ValueError(
-                f"cannot create exactly {num_timesteps} steps with an integer stride"
-            )
-        section_counts = [int(x) for x in section_counts.split(",")]
-
-    size_per = num_timesteps // len(section_counts)
-    extra = num_timesteps % len(section_counts)
-    start_idx = 0
-    all_steps = []
-
-    for i, section_count in enumerate(section_counts):
-        size = size_per + (1 if i < extra else 0)
-        if size < section_count:
-            raise ValueError(
-                f"cannot divide section of {size} steps into {section_count}"
-            )
-        if section_count <= 1:
-            frac_stride = 1
-        else:
-            frac_stride = (size - 1) / (section_count - 1)
-        cur_idx = 0.0
-        taken_steps = []
-        for _ in range(section_count):
-            taken_steps.append(start_idx + round(cur_idx))
-            cur_idx += frac_stride
-        all_steps += taken_steps
-        start_idx += size
-
-    return set(all_steps)
+from ldm.models.diffusion.ddim import DDIMSampler
+from ldm.models.diffusion.plms import PLMSSampler
 
 def load_config(logdir):
-    """获取 configs 目录下的两个文件"""
+    # 获取 configs 目录下的两个文件
     config_dir = os.path.join(logdir, "configs")
     files = os.listdir(config_dir)
     project_file = [f for f in files if 'project.yaml' in f][0]
@@ -73,47 +28,6 @@ def load_config(logdir):
 
     config = OmegaConf.merge(project_cfg, lightning_cfg)
     return config
-
-def setup_timestep_compression(model, ddpm_steps, device):
-    """
-    设置时间步压缩，重新计算beta调度
-    返回原始的sqrt_alphas_cumprod和sqrt_one_minus_alphas_cumprod以供后续使用
-    """
-    # 保存原始的调度参数
-    sqrt_alphas_cumprod = copy.deepcopy(model.sqrt_alphas_cumprod)
-    sqrt_one_minus_alphas_cumprod = copy.deepcopy(model.sqrt_one_minus_alphas_cumprod)
-
-    # 使用space_timesteps选择要使用的时间步
-    use_timesteps = set(space_timesteps(1000, [ddpm_steps]))
-
-    # 重新计算beta值
-    last_alpha_cumprod = 1.0
-    new_betas = []
-    timestep_map = []
-
-    for i, alpha_cumprod in enumerate(model.alphas_cumprod):
-        if i in use_timesteps:
-            new_betas.append(1 - alpha_cumprod / last_alpha_cumprod)
-            last_alpha_cumprod = alpha_cumprod
-            timestep_map.append(i)
-
-    # 将beta值转换为numpy数组
-    new_betas = [beta.data.cpu().numpy() for beta in new_betas]
-
-    # 重新注册调度器
-    model.register_schedule(given_betas=np.array(new_betas), timesteps=len(new_betas))
-
-    # 保存原始时间步映射
-    model.ori_timesteps = list(use_timesteps)
-    model.ori_timesteps.sort()
-
-    # 确保模型在正确的设备上
-    model = model.to(device)
-
-    print(f"时间步压缩完成：从1000步压缩到{len(new_betas)}步")
-    print(f"使用的时间步索引：{model.ori_timesteps[:10]}...（显示前10个）")
-
-    return sqrt_alphas_cumprod, sqrt_one_minus_alphas_cumprod
 
 def evaluate(logdir, ckpt_name, args):
     if args.gpu == -1 or not torch.cuda.is_available():
@@ -136,29 +50,12 @@ def evaluate(logdir, ckpt_name, args):
     model.init_from_ckpt(ckpt_path)
     model.to(device).eval()
 
-    # === 设置时间步压缩（如果指定了ddpm_steps）===
-    sqrt_alphas_cumprod = None
-    sqrt_one_minus_alphas_cumprod = None
-
-    if args.ddpm_steps is not None and args.ddpm_steps < 1000:
-        print(f"\n设置时间步压缩：{args.ddpm_steps}步")
-        # 首先注册完整的1000步调度
-        model.register_schedule(
-            given_betas=None, 
-            beta_schedule="linear", 
-            timesteps=1000,
-            linear_start=0.00085, 
-            linear_end=0.0120, 
-            cosine_s=8e-3
-        )
-        model.num_timesteps = 1000
-
-        # 然后进行时间步压缩
-        sqrt_alphas_cumprod, sqrt_one_minus_alphas_cumprod = setup_timestep_compression(
-            model, args.ddpm_steps, device
-        )
-    else:
-        print("\n使用模型默认的时间步设置")
+    # === 设置DDIM采样器（如果需要）===
+    ddim_sampler = None
+    if args.use_ddim:
+        print(f"初始化DDIM采样器...")
+        ddim_sampler = DDIMSampler(model)
+        print(f"DDIM采样器准备就绪，将使用 {args.ddim_steps} 步")
 
     # === 加载数据 ===
     data = instantiate_from_config(config.data)
@@ -183,43 +80,116 @@ def evaluate(logdir, ckpt_name, args):
         if img_max - img_min < 1e-8:
             return np.zeros_like(img, dtype=np.uint8)
         norm_img = (img - img_min) / (img_max - img_min) * 255.0
-        return norm_img.astype(np.uint8)
+        return norm_img.astype(np.uint8)/255.0
 
     with torch.no_grad():
         with tqdm(total=len(dataloader), desc="Processing batches", leave=True) as pbar:
             for batch in dataloader:   
                 batch = {k: v.to(device) for k, v in batch.items()}
 
-                # === 构建log_images的参数 ===
-                log_kwargs = {
-                    "N": batch['lq_image'].shape[0],
-                    "sample": True,
-                    "plot_diffusion_rows": False,
-                    "plot_progressive_rows": False,
-                }
+                # === 使用log_images方法，它会正确处理条件输入 ===
+                if args.use_ddim and ddim_sampler is not None:
+                    # 修改模型的采样方法以使用DDIM
+                    # 保存原始的sample方法
+                    original_sample = model.sample if hasattr(model, 'sample') else None
+                    original_sample_log = model.sample_log if hasattr(model, 'sample_log') else None
 
-                # 如果设置了时间步压缩，传递相关参数
-                if args.ddpm_steps is not None and args.ddpm_steps < 1000:
-                    # 某些模型可能需要这些参数
-                    log_kwargs["custom_steps"] = args.ddpm_steps
-                    log_kwargs["ddim_steps"] = args.ddpm_steps
+                    # 临时替换为DDIM采样
+                    def ddim_sample_wrapper(cond, batch_size, return_intermediates=False, x_T=None, 
+                                          verbose=True, timesteps=None, unconditional_guidance_scale=1., 
+                                          unconditional_conditioning=None, eta=0., **kwargs):
+                        if timesteps is None:
+                            timesteps = args.ddim_steps
 
-                # 生成样本
-                try:
-                    log = model.log_images(batch, **log_kwargs)
-                except Exception as e:
-                    print(f"使用自定义参数失败: {e}")
-                    print("尝试使用默认参数...")
-                    log = model.log_images(batch, N=batch['lq_image'].shape[0], sample=True)
+                        # 获取形状
+                        if hasattr(model, 'channels'):
+                            c = model.channels
+                        else:
+                            c = 4  # 默认潜在空间通道数
 
-                input_hq = min_max_normalize(log["input_hq"].detach().cpu().numpy())  # [B,1,H,W]
-                samples = min_max_normalize(log["samples"].detach().cpu().numpy())    # [B,1,H,W]
+                        if hasattr(model, 'image_size'):
+                            h = w = model.image_size // 8  # 假设8倍下采样
+                        else:
+                            # 从输入推断
+                            h = w = batch['lq_image'].shape[-1] // 8
+
+                        shape = [c, h, w]
+
+                        samples, intermediates = ddim_sampler.sample(
+                            S=timesteps,
+                            conditioning=cond,
+                            batch_size=batch_size,
+                            shape=shape,
+                            verbose=False,
+                            unconditional_guidance_scale=unconditional_guidance_scale,
+                            unconditional_conditioning=unconditional_conditioning,
+                            eta=args.ddim_eta,
+                            x_T=x_T,
+                            **kwargs
+                        )
+
+                        if return_intermediates:
+                            return samples, intermediates
+                        return samples
+
+                    def ddim_sample_log_wrapper(cond, batch_size, ddim, ddim_steps, **kwargs):
+                        """包装sample_log方法以兼容DDIM采样"""
+                        if ddim:
+                            # 使用DDIM采样
+                            samples = ddim_sample_wrapper(
+                                cond=cond, 
+                                batch_size=batch_size, 
+                                timesteps=ddim_steps,
+                                **kwargs
+                            )
+                            # 返回samples和None作为z_denoise_row
+                            return samples, None
+                        else:
+                            # 使用原始的sample_log方法
+                            if original_sample_log is not None:
+                                return original_sample_log(cond=cond, batch_size=batch_size, 
+                                                         ddim=ddim, ddim_steps=ddim_steps, **kwargs)
+                            else:
+                                # 如果没有原始方法，使用sample方法
+                                samples = original_sample(cond=cond, batch_size=batch_size, **kwargs)
+                                return samples, None
+
+                    # 临时替换采样方法
+                    if hasattr(model, 'sample'):
+                        model.sample = ddim_sample_wrapper
+                    if hasattr(model, 'sample_log'):
+                        model.sample_log = ddim_sample_log_wrapper
+
+                    try:
+                        # 使用修改后的采样方法
+                        log = model.log_images(batch, N=batch['lq_image'].shape[0], sample=True, 
+                                             ddim=True, ddim_steps=args.ddim_steps,
+                                             plot_diffusion_rows=False, plot_progressive_rows=False)
+                    finally:
+                        # 恢复原始方法
+                        if original_sample is not None:
+                            model.sample = original_sample
+                        if original_sample_log is not None:
+                            model.sample_log = original_sample_log
+                else:
+                    # 使用默认的DDPM采样
+                    log = model.log_images(batch, N=batch['lq_image'].shape[0], sample=True,
+                                         plot_diffusion_rows=False, plot_progressive_rows=False)
+
+                input_hq = log["input_hq"].detach().cpu().numpy()  # [B,C,H,W]
+                samples = log["samples"].detach().cpu().numpy()    # [B,C,H,W]
 
                 B = input_hq.shape[0]
 
                 for i in range(B):
-                    gt = input_hq[i,0]
-                    pred = samples[i,0]
+                    # 处理单通道或多通道
+                    if input_hq.shape[1] == 1:
+                        gt = min_max_normalize(input_hq[i,0])
+                        pred = min_max_normalize(samples[i,0])
+                    else:
+                        # 如果是多通道，转换为灰度用于某些指标
+                        gt = np.mean(input_hq[i], axis=0)
+                        pred = np.mean(samples[i], axis=0)
 
                     # 保存 FID 图片
                     gt_img = (gt * 255).clip(0,255).astype(np.uint8)
@@ -261,7 +231,12 @@ def evaluate(logdir, ckpt_name, args):
 
     # === 打印结果 ===
     print("\n==== 评估指标 ====")
-    print(f"DDPM步数: {args.ddpm_steps if args.ddpm_steps else '默认'}")
+    if args.use_ddim:
+        print(f"采样方式: DDIM")
+        print(f"步数: {args.ddim_steps}")
+        print(f"eta: {args.ddim_eta}")
+    else:
+        print(f"采样方式: DDPM (默认)")
     print(f"PSNR: {np.mean(psnr_list):.4f}")
     print(f"SSIM: {np.mean(ssim_list):.4f}")
     print(f"LPIPS: {np.mean(lpips_list):.4f}")
@@ -270,14 +245,20 @@ def evaluate(logdir, ckpt_name, args):
     print(f"EPI: {np.mean(epi_list):.4f}")
 
     # 保存结果
+    sampler_name = f"ddim_steps{args.ddim_steps}" if args.use_ddim else "ddpm"
     results_file = os.path.join(
         logdir, 
-        f"eval_results_{ckpt_name.replace('.ckpt', '')}_steps{args.ddpm_steps if args.ddpm_steps else 'default'}.txt"
+        f"eval_results_{ckpt_name.replace('.ckpt', '')}_{sampler_name}.txt"
     )
     with open(results_file, 'w') as f:
         f.write(f"评估结果\n")
         f.write(f"检查点: {ckpt_name}\n")
-        f.write(f"DDPM步数: {args.ddpm_steps if args.ddpm_steps else '默认'}\n")
+        if args.use_ddim:
+            f.write(f"采样方式: DDIM\n")
+            f.write(f"步数: {args.ddim_steps}\n")
+            f.write(f"eta: {args.ddim_eta}\n")
+        else:
+            f.write(f"采样方式: DDPM\n")
         f.write(f"==================\n")
         f.write(f"PSNR: {np.mean(psnr_list):.4f}\n")
         f.write(f"SSIM: {np.mean(ssim_list):.4f}\n")
@@ -298,8 +279,11 @@ if __name__ == "__main__":
     parser.add_argument("--gpu", type=int, default=0, help="GPU编号，如 0，1，2。若为-1，则使用CPU")
     parser.add_argument('--batch_size', type=int, default=None, help='推理时的 batch size，默认用配置文件')
     parser.add_argument('--gt_path', type=str, default=None, help='推理数据的 ground-truth 路径')
-    parser.add_argument("--ddpm_steps", type=int, default=None, 
-                       help="DDPM采样步数（如50, 100, 200, 250等）。不指定则使用模型默认值(1000步)")
+
+    # DDIM相关参数
+    parser.add_argument("--use_ddim", action="store_true", help="使用DDIM采样器")
+    parser.add_argument("--ddim_steps", type=int, default=50, help="DDIM采样步数")
+    parser.add_argument("--ddim_eta", type=float, default=0.0, help="DDIM的eta参数（0.0=确定性）")
 
     args = parser.parse_args()
 
@@ -307,7 +291,12 @@ if __name__ == "__main__":
     print(f"日志目录: {args.logdir}")
     print(f"检查点: {args.ckpt_name}")
     print(f"GPU: {args.gpu}")
-    print(f"DDPM步数: {args.ddpm_steps if args.ddpm_steps else '默认(1000)'}")
+    if args.use_ddim:
+        print(f"采样器: DDIM")
+        print(f"步数: {args.ddim_steps}")
+        print(f"eta: {args.ddim_eta}")
+    else:
+        print(f"采样器: DDPM (默认)")
     print("===================\n")
 
     evaluate(args.logdir, args.ckpt_name, args)
