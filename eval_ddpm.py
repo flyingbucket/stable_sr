@@ -332,6 +332,7 @@ if __name__ == "__main__":
     gt_path=os.path.basename(args.gt_path)
     config=load_config(args.logdir)
     dataset=args.dataset if args.dataset else config.data.params.validation.target
+    dataset=str(dataset).rsplit(".",1)[-1]
     # print config before eval
     print(f"\n===== 评估配置 =====")
     print(f"实验名称: {exp_name}")
@@ -375,7 +376,7 @@ if __name__ == "__main__":
         "gt_path": gt_path,
         "mode": mode,
         "dataset": dataset,
-        "ddpm_steps": args.ddpm_steps if args.ddpm_steps else 1000,  # 假设默认是1000步DDPM
+        "ddpm_steps": args.ddpm_steps if args.ddpm_steps else 1000,  # 默认是1000步DDPM
         "ddim_steps": None,
         "eta": None,
         "psnr": psnr,

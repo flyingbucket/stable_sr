@@ -315,6 +315,7 @@ if __name__ == "__main__":
     gt_path=os.path.basename(args.gt_path)
     config=load_config(args.logdir)
     dataset=args.dataset if args.dataset else config.data.params.validation.target
+    dataset=str(dataset).rsplit(".",1)[-1]
 
     # print configs before eval
     print(f"\n===== 评估配置 =====")
