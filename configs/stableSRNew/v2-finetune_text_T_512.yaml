@@ -14,7 +14,7 @@ model:
     cond_stage_key: concate
     image_size: 512
     channels: 4
-    cond_stage_trainable: False   # Note: different from the one we trained before
+    cond_stage_trainable: False # Note: different from the one we trained before
     # conditioning_key: crossattn
     monitor: val/loss_simple_ema
     scale_factor: 0.18215
@@ -38,9 +38,9 @@ model:
         in_channels: 4
         out_channels: 4
         model_channels: 320
-        attention_resolutions: [ 4, 2, 1 ]
+        attention_resolutions: [4, 2, 1]
         num_res_blocks: 2
-        channel_mult: [ 1, 2, 4, 4 ]
+        channel_mult: [1, 2, 4, 4]
         num_head_channels: 64
         use_spatial_transformer: True
         use_linear_in_transformer: True
@@ -66,10 +66,10 @@ model:
           out_ch: 5
           ch: 128
           ch_mult:
-          - 1
-          - 2
-          - 4
-          - 4
+            - 1
+            - 2
+            - 4
+            - 4
           num_res_blocks: 2
           attn_resolutions: []
           dropout: 0.0
@@ -90,9 +90,9 @@ model:
         model_channels: 256
         out_channels: 256
         num_res_blocks: 2
-        attention_resolutions: [ 4, 2, 1 ]
+        attention_resolutions: [4, 2, 1]
         dropout: 0
-        channel_mult: [ 1, 1, 2, 2 ]
+        channel_mult: [1, 1, 2, 2]
         conv_resample: True
         dims: 2
         use_checkpoint: False
@@ -104,11 +104,10 @@ model:
         resblock_updown: False
         use_new_attention_order: False
 
-
 degradation:
   use_jpeg: False
   # the first degradation process
-  resize_prob: [0.2, 0.7, 0.1]  # up, down, keep
+  resize_prob: [0.2, 0.7, 0.1] # up, down, keep
   resize_range: [0.3, 1.5]
   gaussian_noise_prob: 0.5
   noise_range: [1, 15]
@@ -118,7 +117,7 @@ degradation:
 
   # the second degradation process
   second_blur_prob: 0.5
-  resize_prob2: [0.3, 0.4, 0.3]  # up, down, keep
+  resize_prob2: [0.3, 0.4, 0.3] # up, down, keep
   resize_range2: [0.6, 1.2]
   gaussian_noise_prob2: 0.5
   noise_range2: [1, 12]
@@ -140,15 +139,27 @@ data:
       params:
         image_type: npy
         queue_size: 180
-        gt_path: ['/mnt/data/wavelet5_full_64_512/hr_512', '/mnt/data/wavelet5_full_64_512/hr_512']
-        face_gt_path: '/mnt/data/wavelet5_full_64_512/hr_512'
+        gt_path:
+          [
+            "/mnt/data/wavelet5_full_64_512/hr_512",
+            "/mnt/data/wavelet5_full_64_512/hr_512",
+          ]
+        face_gt_path: "/mnt/data/wavelet5_full_64_512/hr_512"
         num_face: 10000
         crop_size: 512
         io_backend:
           type: disk
 
         blur_kernel_size: 21
-        kernel_list: ['iso', 'aniso', 'generalized_iso', 'generalized_aniso', 'plateau_iso', 'plateau_aniso']
+        kernel_list:
+          [
+            "iso",
+            "aniso",
+            "generalized_iso",
+            "generalized_aniso",
+            "plateau_iso",
+            "plateau_aniso",
+          ]
         kernel_prob: [0.45, 0.25, 0.12, 0.03, 0.12, 0.03]
         sinc_prob: 0.1
         blur_sigma: [0.2, 1.5]
@@ -156,7 +167,15 @@ data:
         betap_range: [1, 1.5]
 
         blur_kernel_size2: 11
-        kernel_list2: ['iso', 'aniso', 'generalized_iso', 'generalized_aniso', 'plateau_iso', 'plateau_aniso']
+        kernel_list2:
+          [
+            "iso",
+            "aniso",
+            "generalized_iso",
+            "generalized_aniso",
+            "plateau_iso",
+            "plateau_aniso",
+          ]
         kernel_prob2: [0.45, 0.25, 0.12, 0.03, 0.12, 0.03]
         sinc_prob2: 0.1
         blur_sigma2: [0.2, 1.0]
@@ -178,7 +197,15 @@ data:
           type: disk
 
         blur_kernel_size: 21
-        kernel_list: ['iso', 'aniso', 'generalized_iso', 'generalized_aniso', 'plateau_iso', 'plateau_aniso']
+        kernel_list:
+          [
+            "iso",
+            "aniso",
+            "generalized_iso",
+            "generalized_aniso",
+            "plateau_iso",
+            "plateau_aniso",
+          ]
         kernel_prob: [0.45, 0.25, 0.12, 0.03, 0.12, 0.03]
         sinc_prob: 0.1
         blur_sigma: [0.2, 1.5]
@@ -186,7 +213,15 @@ data:
         betap_range: [1, 1.5]
 
         blur_kernel_size2: 11
-        kernel_list2: ['iso', 'aniso', 'generalized_iso', 'generalized_aniso', 'plateau_iso', 'plateau_aniso']
+        kernel_list2:
+          [
+            "iso",
+            "aniso",
+            "generalized_iso",
+            "generalized_aniso",
+            "plateau_iso",
+            "plateau_aniso",
+          ]
         kernel_prob2: [0.45, 0.25, 0.12, 0.03, 0.12, 0.03]
         sinc_prob2: 0.1
         blur_sigma2: [0.2, 1.0]
@@ -214,7 +249,15 @@ test_data:
           type: disk
 
         blur_kernel_size: 21
-        kernel_list: ['iso', 'aniso', 'generalized_iso', 'generalized_aniso', 'plateau_iso', 'plateau_aniso']
+        kernel_list:
+          [
+            "iso",
+            "aniso",
+            "generalized_iso",
+            "generalized_aniso",
+            "plateau_iso",
+            "plateau_aniso",
+          ]
         kernel_prob: [0.45, 0.25, 0.12, 0.03, 0.12, 0.03]
         sinc_prob: 0.1
         blur_sigma: [0.2, 1.5]
@@ -222,7 +265,15 @@ test_data:
         betap_range: [1, 1.5]
 
         blur_kernel_size2: 11
-        kernel_list2: ['iso', 'aniso', 'generalized_iso', 'generalized_aniso', 'plateau_iso', 'plateau_aniso']
+        kernel_list2:
+          [
+            "iso",
+            "aniso",
+            "generalized_iso",
+            "generalized_aniso",
+            "plateau_iso",
+            "plateau_aniso",
+          ]
         kernel_prob2: [0.45, 0.25, 0.12, 0.03, 0.12, 0.03]
         sinc_prob2: 0.1
         blur_sigma2: [0.2, 1.0]

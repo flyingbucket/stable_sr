@@ -6,7 +6,7 @@ import torchvision
 import pytorch_lightning as pl
 
 from packaging import version
-from omegaconf import OmegaConf
+from omegaconf import OmegaConf,ListConfig
 from torch.utils.data import random_split, DataLoader, Dataset, Subset
 from functools import partial
 from PIL import Image
@@ -692,9 +692,19 @@ if __name__ == "__main__":
     # configure learning rate
     bs, base_lr = config.data.params.batch_size, config.model.base_learning_rate
     if not cpu:
-        ngpu = len(lightning_config.trainer.gpus.strip(",").split(','))
+        # ngpu = len(lightning_config.trainer.gpus.strip(",").split(','))
+        gpus = lightning_config.trainer.gpus
+        if isinstance(gpus, str):
+            ngpu = len(gpus.strip(',').split(','))
+        elif isinstance(gpus, (list, tuple, ListConfig)):
+            ngpu = len(gpus)
+        elif isinstance(gpus, (list, tuple)):
+            ngpu = len(gpus)
+        else:
+            raise ValueError(f"Unsupported gpus format: {gpus}")
     else:
         ngpu = 1
+
     if 'accumulate_grad_batches' in lightning_config.trainer:
         accumulate_grad_batches = lightning_config.trainer.accumulate_grad_batches
     else:
