@@ -162,13 +162,15 @@ class WaveletSRDGDataset(Dataset):
         img_gt = self._load_image(path)  # [1, H, W]
 
         degraded=img_gt.clone()
-        speckle = np.random.gamma(shape=1/0.003, scale=0.003, size=degraded.shape)
-        degraded = degraded * speckle
+        degraded_np = degraded.squeeze(0).numpy().astype(np.float32)
+        speckle = np.random.gamma(shape=1/0.003, scale=0.003, size=degraded_np.shape)
+        degraded_np = degraded_np * speckle
         # 轻微模糊
-        degraded = cv2.GaussianBlur(degraded, (3, 3), 0.3)
+        degraded_np = cv2.GaussianBlur(degraded_np, (3, 3), 0.3)
         # 极弱加性噪声
-        noise = np.random.normal(0, 0.01, degraded.shape)  # 大幅减小
-        degraded = degraded + noise
+        noise = np.random.normal(0, 0.01, degraded_np.shape)  # 大幅减小
+        degraded_np = degraded_np + noise
+        degraded = torch.from_numpy(degraded_np).unsqueeze(0)  # [1, H, W]
 
         if self.crop_size:
             img_gt = self._crop_center(img_gt, self.crop_size)
@@ -198,6 +200,7 @@ class WaveletSRDGDataset(Dataset):
 
     def __len__(self):
         return len(self.image_paths)
+
 class OriginalDataset(Dataset):
     def __init__(self, gt_path=None, crop_size=None, **kwargs):
         """
