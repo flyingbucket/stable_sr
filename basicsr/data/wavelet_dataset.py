@@ -9,6 +9,8 @@ from torchvision.transforms.functional import to_tensor
 from glob import glob
 from PIL import Image
 from omegaconf import ListConfig, DictConfig
+from bm3d import bm3d, BM3DStages
+from scipy.ndimage import convolve
 
 class WaveletSRDataset(Dataset):
     def __init__(self, gt_path=None, crop_size=None, wavelet="haar", **kwargs):
@@ -98,6 +100,62 @@ class WaveletSRDataset(Dataset):
 
     def __len__(self):
         return len(self.image_paths)
+
+
+def motion_kernel(length: float, angle: float):
+    if length <= 0:
+        return None
+    k = int(length * 2 + 1)
+    kernel = np.zeros((k, k), np.float32)
+    rad, cx = np.deg2rad(angle), k // 2
+    dx, dy = np.cos(rad), np.sin(rad)
+    for t in np.linspace(-length / 2, length / 2, int(length * 3)):
+        x, y = int(cx + t * dx), int(cx + t * dy)
+        if 0 <= x < k and 0 <= y < k:
+            kernel[y, x] = 1.0
+    kernel /= kernel.sum() + 1e-8
+    return kernel
+
+
+def bm3d_denoise(img: np.ndarray, sigma: float) -> np.ndarray:
+    return np.clip(
+        bm3d(img, sigma_psd=sigma, stage_arg=BM3DStages.HARD_THRESHOLDING), 0, 1
+    )
+
+def simulate_degradation(
+    img_arr: np.ndarray,
+    scale: int=4,
+    blur_sigma: float=0.5,
+    speckle_scale: float=0.25,
+    motion_len: float=0.5,
+    motion_angle: float=0.0,
+    gaussian_std: float = 0.03,
+    bm3d_sigma: float = 0.03,
+):
+    # 轻微高斯模糊 + speckle（Gamma 乘性噪声）
+    deg = cv2.GaussianBlur(img_arr, (3, 3), blur_sigma)
+    speckle = np.random.gamma(shape=1 / speckle_scale, scale=speckle_scale, size=deg.shape)
+    deg *= speckle
+
+    # 运动模糊
+    if motion_len > 0:
+        k = motion_kernel(motion_len, motion_angle)
+        deg = convolve(deg, k, mode="reflect")
+
+    # 加性高斯噪声
+    if gaussian_std > 0:
+        deg += np.random.normal(0, gaussian_std, deg.shape)
+
+    deg = np.clip(deg, 0, 1)
+
+    # 下采样
+    h, w = deg.shape
+    lr_deg = cv2.resize(deg, (w // scale, h // scale), interpolation=cv2.INTER_CUBIC)
+
+    # 轻度去噪
+    lr_den = bm3d_denoise(lr_deg, bm3d_sigma)
+
+    return deg, lr_deg, lr_den
 
 class WaveletSRDGDataset(Dataset):
     def __init__(self, gt_path=None, crop_size=None, wavelet="haar", **kwargs):
