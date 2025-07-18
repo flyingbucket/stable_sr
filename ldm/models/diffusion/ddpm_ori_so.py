@@ -1,5 +1,6 @@
 from ldm.models.diffusion.ddpm import LatentDiffusion,space_timesteps
 import torch
+import copy
 import random
 import torch.nn.functional as F
 from ldm.util import default,instantiate_from_config
@@ -244,7 +245,7 @@ class LatentDiffusionOriSO(LatentDiffusion):
         if sample:
             # get denoise row
             with self.ema_scope("Plotting"):
-                samples, z_denoise_row = self.sample_log(cond=c, struct_cond=struct_cond, batch_size=N, ddim=use_ddim,
+                samples, z_denoise_row = self.sample_log(cond=copy.deepcopy(c), struct_cond=struct_cond, batch_size=N, ddim=use_ddim,
                                                          ddim_steps=ddim_steps, eta=ddim_eta)
                 # samples, z_denoise_row = self.sample(cond=c, batch_size=N, return_intermediates=True)
             x_samples = self.decode_first_stage(samples)
@@ -257,8 +258,8 @@ class LatentDiffusionOriSO(LatentDiffusion):
                     self.first_stage_model, IdentityFirstStage):
                 # also display when quantizing x0 while sampling
                 with self.ema_scope("Plotting Quantized Denoised"):
-                    samples, z_denoise_row = self.sample_log(cond=c,struct_cond=struct_cond,batch_size=N,ddim=use_ddim,
-                                                             ddim_steps=ddim_steps,eta=ddim_eta,
+                    samples, z_denoise_row = self.sample_log(cond=copy.deepcopy(c), struct_cond=struct_cond, batch_size=N, ddim=use_ddim,
+                                                             ddim_steps=ddim_steps, eta=ddim_eta,
                                                              quantize_denoised=True)
                     # samples, z_denoise_row = self.sample(cond=c, batch_size=N, return_intermediates=True,
                     #                                      quantize_denoised=True)
@@ -274,7 +275,7 @@ class LatentDiffusionOriSO(LatentDiffusion):
                 mask = mask[:, None, ...]
                 with self.ema_scope("Plotting Inpaint"):
 
-                    samples, _ = self.sample_log(cond=c,struct_cond=struct_cond,batch_size=N,ddim=use_ddim, eta=ddim_eta,
+                    samples, _ = self.sample_log(cond=copy.deepcopy(c), struct_cond=struct_cond, batch_size=N, ddim=use_ddim, eta=ddim_eta,
                                                 ddim_steps=ddim_steps, x0=z[:N], mask=mask)
                 x_samples = self.decode_first_stage(samples.to(self.device))
                 log["samples_inpainting"] = x_samples
@@ -282,7 +283,7 @@ class LatentDiffusionOriSO(LatentDiffusion):
 
                 # outpaint
                 with self.ema_scope("Plotting Outpaint"):
-                    samples, _ = self.sample_log(cond=c, struct_cond=struct_cond, batch_size=N, ddim=use_ddim,eta=ddim_eta,
+                    samples, _ = self.sample_log(cond=copy.deepcopy(c), struct_cond=struct_cond, batch_size=N, ddim=use_ddim, eta=ddim_eta,
                                                 ddim_steps=ddim_steps, x0=z[:N], mask=mask)
                 x_samples = self.decode_first_stage(samples.to(self.device))
                 log["samples_outpainting"] = x_samples
@@ -318,7 +319,7 @@ class LatentDiffusionOriSO(LatentDiffusion):
                                 mask=mask, x0=x0,
                                 struct_cond=struct_cond)  # 明确传入
 
-    def sample_log(self,cond,struct_cond,batch_size,ddim=False, ddim_steps=10,**kwargs):
+    def sample_log(self, cond, struct_cond, batch_size, ddim=False, ddim_steps=10, **kwargs):
 
         # if ddim:
         #     raise NotImplementedError("DDIM sampling is not implemented in this version of the code.")

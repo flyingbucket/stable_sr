@@ -1,6 +1,7 @@
 from ldm.models.diffusion.ddpm import LatentDiffusion,space_timesteps
 import torch
 import random
+import copy
 import torch.nn.functional as F
 from ldm.util import default,instantiate_from_config
 from einops import repeat,rearrange
@@ -248,7 +249,7 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
         if sample:
             # get denoise row
             with self.ema_scope("Plotting"):
-                samples, z_denoise_row = self.sample_log(cond=c,batch_size=N,ddim=use_ddim,
+                samples, z_denoise_row = self.sample_log(cond=copy.deepcopy(c),batch_size=N,ddim=use_ddim,
                                                          ddim_steps=ddim_steps,eta=ddim_eta)
                 # samples, z_denoise_row = self.sample(cond=c, batch_size=N, return_intermediates=True)
             x_samples = self.decode_first_stage(samples)
@@ -257,18 +258,16 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
                 denoise_grid = self._get_denoise_row_from_list(z_denoise_row)
                 log["denoise_row"] = denoise_grid
 
-            # # if quantize_denoised and not isinstance(self.first_stage_model, AutoencoderKL) and not isinstance(
-            # #         self.first_stage_model, IdentityFirstStage):
-            # if quantize_denoised and not isinstance(self.first_stage_model, (AutoencoderKL, AutoencoderKLPlus, IdentityFirstStage)):
-            #     # 你不会走到这里
-            #     # also display when quantizing x0 while sampling
-            #     with self.ema_scope("Plotting Quantized Denoised"):
-            #         samples, z_denoise_row = self.sample_log(cond=c,batch_size=N,ddim=use_ddim,
-            #                                                  ddim_steps=ddim_steps,eta=ddim_eta,
-            #                                                  quantize_denoised=True)
-            #         # samples, z_denoise_row = self.sample(cond=c, batch_size=N, return_intermediates=True,
-            #         #                                      quantize_denoised=True)
-            #     x_samples = self.decode_first_stage(samples.to(self.device))
+            if quantize_denoised and not isinstance(self.first_stage_model, (AutoencoderKL, AutoencoderKLPlus, IdentityFirstStage)):
+                # 你不会走到这里
+                # also display when quantizing x0 while sampling
+                with self.ema_scope("Plotting Quantized Denoised"):
+                    samples, z_denoise_row = self.sample_log(cond=copy.deepcopy(c), batch_size=N, ddim=use_ddim,
+                                                             ddim_steps=ddim_steps, eta=ddim_eta,
+                                                             quantize_denoised=True)
+                    # samples, z_denoise_row = self.sample(cond=c, batch_size=N, return_intermediates=True,
+                    #                                      quantize_denoised=True)
+                x_samples = self.decode_first_stage(samples.to(self.device))
             #     log["samples_x0_quantized"] = x_samples
 
             if inpaint:
@@ -280,7 +279,7 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
                 mask = mask[:, None, ...]
                 with self.ema_scope("Plotting Inpaint"):
 
-                    samples, _ = self.sample_log(cond=c,batch_size=N,ddim=use_ddim, eta=ddim_eta,
+                    samples, _ = self.sample_log(cond=copy.deepcopy(c), batch_size=N, ddim=use_ddim, eta=ddim_eta,
                                                 ddim_steps=ddim_steps, x0=z[:N], mask=mask)
                 x_samples = self.decode_first_stage(samples.to(self.device))
                 log["samples_inpainting"] = x_samples
@@ -288,7 +287,7 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
 
                 # outpaint
                 with self.ema_scope("Plotting Outpaint"):
-                    samples, _ = self.sample_log(cond=c, batch_size=N, ddim=use_ddim,eta=ddim_eta,
+                    samples, _ = self.sample_log(cond=copy.deepcopy(c), batch_size=N, ddim=use_ddim, eta=ddim_eta,
                                                 ddim_steps=ddim_steps, x0=z[:N], mask=mask)
                 x_samples = self.decode_first_stage(samples.to(self.device))
                 log["samples_outpainting"] = x_samples
@@ -324,7 +323,7 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
                                 mask=mask, x0=x0,
                                 struct_cond=struct_cond)  # 明确传入
 
-    def sample_log(self,cond,batch_size,ddim=False, ddim_steps=10,**kwargs):
+    def sample_log(self, cond, batch_size, ddim=False, ddim_steps=10, **kwargs):
 
         # if ddim:
         #     raise NotImplementedError("DDIM sampling is not implemented in this version of the code.")
