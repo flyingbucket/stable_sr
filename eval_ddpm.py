@@ -1,8 +1,11 @@
 import os
+import re 
 import shutil
 import argparse
 import torch
 import numpy as np
+import pandas as pd
+from filelock import FileLock
 from tqdm import tqdm
 from omegaconf import OmegaConf
 from ldm.util import instantiate_from_config
@@ -126,6 +129,9 @@ def evaluate(logdir, ckpt_name, args):
 
     if args.batch_size is not None:
         config.data.params.batch_size = args.batch_size
+    if args.dataset is not None:
+        config.data.params.train.target=args.dataset
+        config.data.params.validation.target=args.dataset
     if args.gt_path is not None:
         config.test_data.params.test.params.gt_path = args.gt_path
         config.data.params.validation.params.gt_path = args.gt_path
@@ -262,15 +268,21 @@ def evaluate(logdir, ckpt_name, args):
     # === FID ===
     fid = fid_score.calculate_fid_given_paths([fid_real, fid_fake], batch_size=2, device=device, dims=2048)
 
-    # === 打印结果 ===
-    print("\n==== 评估指标 ====")
-    print(f"DDPM步数: {args.ddpm_steps if args.ddpm_steps else '默认'}")
-    print(f"PSNR: {np.mean(psnr_list):.4f}")
-    print(f"SSIM: {np.mean(ssim_list):.4f}")
-    print(f"LPIPS: {np.mean(lpips_list):.4f}")
-    print(f"FID: {fid:.4f}")
-    print(f"ENL: {np.mean(enl_list):.4f}")
-    print(f"EPI: {np.mean(epi_list):.4f}")
+    psnr=np.mean(psnr_list)
+    ssim=np.mean(ssim_list)
+    lpips_val=np.mean(lpips_list)
+    enl=np.mean(enl_list)
+    epi=np.mean(epi_list)
+
+    # # === 打印结果 ===
+    # print("\n==== 评估指标 ====")
+    # print(f"DDPM步数: {args.ddpm_steps if args.ddpm_steps else '默认'}")
+    # print(f"PSNR: {np.mean(psnr_list):.4f}")
+    # print(f"SSIM: {np.mean(ssim_list):.4f}")
+    # print(f"LPIPS: {np.mean(lpips_list):.4f}")
+    # print(f"FID: {fid:.4f}")
+    # print(f"ENL: {np.mean(enl_list):.4f}")
+    # print(f"EPI: {np.mean(epi_list):.4f}")
 
     # 保存结果
     results_file = os.path.join(
@@ -293,6 +305,7 @@ def evaluate(logdir, ckpt_name, args):
 
     shutil.rmtree(fid_real)
     shutil.rmtree(fid_fake)  
+    return psnr,ssim,lpips_val,fid,enl,epi,
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -301,16 +314,87 @@ if __name__ == "__main__":
     parser.add_argument("--gpu", type=int, default=0, help="GPU编号，如 0，1，2。若为-1，则使用CPU")
     parser.add_argument('--batch_size', type=int, default=None, help='推理时的 batch size，默认用配置文件')
     parser.add_argument('--gt_path', type=str, default=None, help='推理数据的 ground-truth 路径')
-    parser.add_argument("--ddpm_steps", type=int, default=None, 
+    parser.add_argument("--ddpm_steps", type=int, default=1000, 
                        help="DDPM采样步数（如50, 100, 200, 250等）。不指定则使用模型默认值(1000步)")
-
+    parser.add_argument("--dataset",type=str,default=None,help="输入dataloader对应的dataset的python导入路径来指定下采样方式，默认使用logdir中config的指定模型")
     args = parser.parse_args()
 
+    # prepare eval INFO
+    # get experiment name from logdir
+    basename = os.path.basename(args.logdir)  # 获取最后一层目录名
+    match = re.match(r"\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}_(.*)", basename)
+    if match:
+        exp_name = match.group(1)
+    else:
+        raise ValueError(f"无法从日志目录名 '{args.logdir}' 中提取实验名称")
+
+    mode="DDPM" 
+    gt_path=os.path.basename(args.gt_path)
+    config=load_config(args.logdir)
+    dataset=args.dataset if args.dataset else config.data.params.validation.target
+    # print config before eval
     print(f"\n===== 评估配置 =====")
+    print(f"实验名称: {exp_name}")
+    print(f"MODE: {mode}")
     print(f"日志目录: {args.logdir}")
     print(f"检查点: {args.ckpt_name}")
+    print(f"数据模型: {dataset}")
+    print(f"测试集: {args.gt_path}")
     print(f"GPU: {args.gpu}")
-    print(f"DDPM步数: {args.ddpm_steps if args.ddpm_steps else '默认(1000)'}")
+    print(f"DDPM步数: {args.ddpm_steps}")
+    print("===================\n")
+    
+    psnr, ssim, lpips_val, fid, enl, epi = evaluate(args.logdir, args.ckpt_name, args)
+
+    print(f"\n===== 评估配置 =====")
+    print(f"实验名称: {exp_name}")
+    print(f"MODE: {mode}")
+    print(f"日志目录: {args.logdir}")
+    print(f"检查点: {args.ckpt_name}")
+    print(f"数据模型: {dataset}")
+    print(f"测试集: {args.gt_path}")
+    print(f"GPU: {args.gpu}")
+    print(f"DDPM步数: {args.ddpm_steps}")
     print("===================\n")
 
-    evaluate(args.logdir, args.ckpt_name, args)
+    # === 打印结果 ===
+    print("\n==== 评估指标 ====")
+    print(f"DDPM步数: {args.ddpm_steps}")
+    print(f"PSNR: {psnr:.4f}")
+    print(f"SSIM: {ssim:.4f}")
+    print(f"LPIPS: {lpips_val:.4f}")
+    print(f"FID: {fid:.4f}")
+    print(f"ENL: {enl:.4f}")
+    print(f"EPI: {epi:.4f}")
+
+    
+    # write to database
+    result = {
+        "exp_name": exp_name,
+        "ckpt_name": args.ckpt_name,
+        "gt_path": gt_path,
+        "mode": mode,
+        "dataset": dataset,
+        "ddpm_steps": args.ddpm_steps if args.ddpm_steps else 1000,  # 假设默认是1000步DDPM
+        "ddim_steps": None,
+        "eta": None,
+        "psnr": psnr,
+        "ssim": ssim,
+        "lpips": lpips_val,
+        "fid": fid,
+        "enl": enl,
+        "epi": epi,
+    }
+
+    # 保存到 CSV
+    save_path = "eval_results.csv"
+    lock_path = save_path + ".lock"
+
+    with FileLock(lock_path):
+        if os.path.exists(save_path):
+            df = pd.read_csv(save_path)
+            df = pd.concat([df, pd.DataFrame([result])], ignore_index=True)
+        else:
+            df = pd.DataFrame([result])
+
+        df.to_csv(save_path, index=False)
