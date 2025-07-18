@@ -221,28 +221,17 @@ class WaveletSRDGDataset(Dataset):
 
         degraded=img_gt.clone()
         degraded_np = degraded.squeeze(0).numpy().astype(np.float32)
-        speckle = np.random.gamma(shape=1/0.003, scale=0.003, size=degraded_np.shape)
-        degraded_np = degraded_np * speckle
-        # 轻微模糊
-        degraded_np = cv2.GaussianBlur(degraded_np, (3, 3), 0.3)
-        # 极弱加性噪声
-        noise = np.random.normal(0, 0.01, degraded_np.shape)  # 大幅减小
-        degraded_np = degraded_np + noise
-        degraded = torch.from_numpy(degraded_np).unsqueeze(0)  # [1, H, W]
-
+        _,_,degraded_np = simulate_degradation(degraded_np)
         if self.crop_size:
             img_gt = self._crop_center(img_gt, self.crop_size)
 
         # => [1, H, W] → [1, 1, H, W]
         img_gt_batched = img_gt.unsqueeze(0)
         degraded_batched = degraded.unsqueeze(0)
+        
         # 下采样 + 上采样（bicubic）
-        lq = F.interpolate(
-            degraded_batched, scale_factor=0.25, mode="bicubic", align_corners=False
-        )
-
         lq_up = F.interpolate(
-            lq, size=img_gt.shape[-2:], mode="bicubic", align_corners=False
+            degraded_batched, size=img_gt.shape[-2:], mode="bicubic", align_corners=False
         )
         # 去掉 batch 维度 → [1, H, W]
         lq_up = lq_up.squeeze(0)
