@@ -5,7 +5,9 @@ logdirs = [
     "logs/2025-07-14T18-45-43_W_KL_CS_2",
     "logs/2025-07-14T18-46-39_Ori_none_2",
     "logs/2025-07-15T16-18-12_Ori_SO",
-    "logs/2025-07-17T16-05-07_W_KLP_SO"
+    "logs/2025-07-17T16-05-07_W_KLP_SO",
+    "logs/2025-07-14T18-43-47_W_KL_SO_2",
+    "logs/2025-07-13T18-46-07_Ori_none",
 ]
 
 gpu = 0
