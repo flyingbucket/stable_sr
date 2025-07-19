@@ -2,6 +2,8 @@ import os
 import re 
 import shutil
 import argparse
+import contextlib
+import sys
 import torch
 import numpy as np
 import pandas as pd
@@ -19,6 +21,18 @@ import cv2
 import copy
 from einops import repeat
 
+@contextlib.contextmanager
+def suppress_stdout_stderr():
+    with open(os.devnull, 'w') as fnull:
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+        sys.stdout = fnull
+        sys.stderr = fnull
+        try:
+            yield
+        finally:
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
 def space_timesteps(num_timesteps, section_counts):
     """
     Create a list of timesteps to use from an original diffusion process,
@@ -138,9 +152,10 @@ def evaluate(logdir, ckpt_name, args):
 
     # === 加载模型 ===
     ckpt_path = os.path.join(logdir, "checkpoints", ckpt_name)
-    model = instantiate_from_config(config.model)
-    model.init_from_ckpt(ckpt_path)
-    model.to(device).eval()
+    with suppress_stdout_stderr():
+        model = instantiate_from_config(config.model)
+        model.init_from_ckpt(ckpt_path)
+        model.to(device).eval()
 
     # === 设置时间步压缩（如果指定了ddpm_steps）===
     sqrt_alphas_cumprod = None
@@ -172,7 +187,8 @@ def evaluate(logdir, ckpt_name, args):
     dataloader = data.val_dataloader()
 
     # === LPIPS ===
-    lpips_fn = lpips.LPIPS(net='alex').to(device)
+    with suppress_stdout_stderr():
+        lpips_fn = lpips.LPIPS(net='alex').to(device)
 
     # === FID 目录准备 ===
     fid_real = os.path.join(logdir, "fid_real")
@@ -274,16 +290,6 @@ def evaluate(logdir, ckpt_name, args):
     enl=np.mean(enl_list)
     epi=np.mean(epi_list)
 
-    # # === 打印结果 ===
-    # print("\n==== 评估指标 ====")
-    # print(f"DDPM步数: {args.ddpm_steps if args.ddpm_steps else '默认'}")
-    # print(f"PSNR: {np.mean(psnr_list):.4f}")
-    # print(f"SSIM: {np.mean(ssim_list):.4f}")
-    # print(f"LPIPS: {np.mean(lpips_list):.4f}")
-    # print(f"FID: {fid:.4f}")
-    # print(f"ENL: {np.mean(enl_list):.4f}")
-    # print(f"EPI: {np.mean(epi_list):.4f}")
-
     # 保存结果
     results_file = os.path.join(
         logdir, 
@@ -344,7 +350,7 @@ if __name__ == "__main__":
     print(f"GPU: {args.gpu}")
     print(f"DDPM步数: {args.ddpm_steps}")
     print("===================\n")
-    
+    print("Loading Model ...") 
     psnr, ssim, lpips_val, fid, enl, epi = evaluate(args.logdir, args.ckpt_name, args)
 
     print(f"\n===== 评估配置 =====")
