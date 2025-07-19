@@ -1,0 +1,12 @@
+name: stablesr
+channels:
+  - defaults
+dependencies:
+  - cudatoolkit=11.3
+  - numpy=1.23.1
+  - pip=20.3
+  - python=3.9
+  - ipykernel
+  - scikit-image=0.20.0
+  - scipy=1.9.1
+prefix: /home/flyingbucket/miniconda3/envs/stablesr
