@@ -285,7 +285,11 @@ def evaluate(logdir, ckpt_name, args):
     fid = fid_score.calculate_fid_given_paths([fid_real, fid_fake], batch_size=2, device=device, dims=2048)
 
     psnr=np.mean(psnr_list)
+    psnr_max=np.max(psnr_list)
+    psnr_min=np.min(psnr_list)
     ssim=np.mean(ssim_list)
+    ssim_max=np.max(ssim_list)
+    ssim_min=np.min(ssim_list)
     lpips_val=np.mean(lpips_list)
     enl=np.mean(enl_list)
     epi=np.mean(epi_list)
@@ -311,7 +315,7 @@ def evaluate(logdir, ckpt_name, args):
 
     shutil.rmtree(fid_real)
     shutil.rmtree(fid_fake)  
-    return psnr,ssim,lpips_val,fid,enl,epi,
+    return psnr,psnr_max,psnr_min,ssim,ssim_max,ssim_min,lpips_val,fid,enl,epi,
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -351,7 +355,7 @@ if __name__ == "__main__":
     print(f"DDPM步数: {args.ddpm_steps}")
     print("===================\n")
     print("Loading Model ...") 
-    psnr, ssim, lpips_val, fid, enl, epi = evaluate(args.logdir, args.ckpt_name, args)
+    psnr,psnr_max,psnr_min,ssim,ssim_max,ssim_min,lpips_val,fid,enl,epi= evaluate(args.logdir, args.ckpt_name, args)
 
     print(f"\n===== 评估配置 =====")
     print(f"实验名称: {exp_name}")
@@ -386,7 +390,11 @@ if __name__ == "__main__":
         "ddim_steps": None,
         "eta": None,
         "psnr": psnr,
+        "psnr_max": psnr_max,
+        "psnr_min": psnr_min,
         "ssim": ssim,
+        "ssim_max": ssim_max,
+        "ssim_min": ssim_min,
         "lpips": lpips_val,
         "fid": fid,
         "enl": enl,
@@ -398,10 +406,27 @@ if __name__ == "__main__":
     lock_path = save_path + ".lock"
 
     with FileLock(lock_path):
-        if os.path.exists(save_path):
-            df = pd.read_csv(save_path)
-            df = pd.concat([df, pd.DataFrame([result])], ignore_index=True)
-        else:
-            df = pd.DataFrame([result])
+        new_df = pd.DataFrame([result])
 
+        if os.path.exists(save_path):
+            old_df = pd.read_csv(save_path)
+
+            # 自动对齐列，补充缺失值为 NaN
+            combined_df, _ = old_df.align(new_df, join="outer", axis=1)
+
+            # 再拼接
+            df = pd.concat([combined_df, new_df], ignore_index=True)
+
+        else:
+            df = new_df
+
+        # 保存
         df.to_csv(save_path, index=False)
+    # with FileLock(lock_path):
+    #     if os.path.exists(save_path):
+    #         df = pd.read_csv(save_path)
+    #         df = pd.concat([df, pd.DataFrame([result])], ignore_index=True)
+    #     else:
+    #         df = pd.DataFrame([result])
+
+    #     df.to_csv(save_path, index=False)
