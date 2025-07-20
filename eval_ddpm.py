@@ -309,7 +309,7 @@ def evaluate(logdir, ckpt_name, args):
     # 保存每个样本的指标到 npz 文件
     metric_save_path = os.path.join(
         logdir, 
-        f"metrics_{ckpt_name.replace('.ckpt', '')}_steps{args.ddpm_steps if args.ddpm_steps else 'default'}.npz"
+        f"metrics_{ckpt_name.replace('.ckpt', '')}_ddpm_steps{args.ddpm_steps if args.ddpm_steps else 'default'}.npz"
     )
 
     np.savez(metric_save_path,
@@ -363,6 +363,7 @@ if __name__ == "__main__":
     parser.add_argument("--ddpm_steps", type=int, default=1000, 
                        help="DDPM采样步数（如50, 100, 200, 250等）。不指定则使用模型默认值(1000步)")
     parser.add_argument("--dataset",type=str,default=None,help="输入dataloader对应的dataset的python导入路径来指定下采样方式，默认使用logdir中config的指定模型")
+    parser.add_argument("--save_path",type=str,default="eval_results.csv",help="指定评估指标数据表的写入路径")
     args = parser.parse_args()
 
     # prepare eval INFO
@@ -389,6 +390,7 @@ if __name__ == "__main__":
     print(f"测试集: {args.gt_path}")
     print(f"GPU: {args.gpu}")
     print(f"DDPM步数: {args.ddpm_steps}")
+    print(f"数据表写入位置: {args.save_path}")
     print("===================\n")
     print("Loading Model ...") 
     
@@ -402,6 +404,7 @@ if __name__ == "__main__":
     print(f"数据模型: {dataset}")
     print(f"测试集: {args.gt_path}")
     print(f"GPU: {args.gpu}")
+    print(f"数据表写入位置: {args.savepath}")
     print(f"DDPM步数: {args.ddpm_steps}")
     print("===================\n")
 
@@ -430,7 +433,7 @@ if __name__ == "__main__":
     result.update(res_dict)
 
     # 保存到 CSV
-    save_path = "eval_results.csv"
+    save_path = args.save_path
     lock_path = save_path + ".lock"
 
     # 明确指定列顺序（支持旧指标+新指标）

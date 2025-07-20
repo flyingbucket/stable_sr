@@ -1,6 +1,4 @@
-import os
-import re 
-import shutil
+import os,re,shutil,sys,contextlib
 import argparse
 import torch
 import numpy as np
@@ -19,6 +17,18 @@ import cv2
 from ldm.models.diffusion.ddim import DDIMSampler
 from ldm.models.diffusion.plms import PLMSSampler
 
+@contextlib.contextmanager
+def suppress_stdout_stderr():
+    with open(os.devnull, 'w') as fnull:
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+        sys.stdout = fnull
+        sys.stderr = fnull
+        try:
+            yield
+        finally:
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
 def load_config(logdir):
     # 获取 configs 目录下的两个文件
     config_dir = os.path.join(logdir, "configs")
@@ -31,6 +41,14 @@ def load_config(logdir):
 
     config = OmegaConf.merge(project_cfg, lightning_cfg)
     return config
+
+def bootstrap_ci(data, confidence=0.95, n_bootstrap=10000):
+    data = np.array(data)
+    boot_samples = np.random.choice(data, (n_bootstrap, len(data)), replace=True)
+    boot_means = np.mean(boot_samples, axis=1)
+    lower = np.percentile(boot_means, (1-confidence)/2*100)
+    upper = np.percentile(boot_means, (1+confidence)/2*100)
+    return np.mean(data), lower, upper
 
 def evaluate(logdir, ckpt_name, args):
     if args.gpu == -1 or not torch.cuda.is_available():
@@ -51,10 +69,11 @@ def evaluate(logdir, ckpt_name, args):
         config.data.params.validation.params.gt_path = args.gt_path
 
     # === 加载模型 ===
-    ckpt_path = os.path.join(logdir, "checkpoints", ckpt_name)
-    model = instantiate_from_config(config.model)
-    model.init_from_ckpt(ckpt_path)
-    model.to(device).eval()
+    with suppress_stdout_stderr():
+        ckpt_path = os.path.join(logdir, "checkpoints", ckpt_name)
+        model = instantiate_from_config(config.model)
+        model.init_from_ckpt(ckpt_path)
+        model.to(device).eval()
 
     # === 设置DDIM采样器（如果需要）===
     ddim_sampler = None
@@ -69,7 +88,8 @@ def evaluate(logdir, ckpt_name, args):
     dataloader = data.val_dataloader()
 
     # === LPIPS ===
-    lpips_fn = lpips.LPIPS(net='alex').to(device)
+    with suppress_stdout_stderr():
+        lpips_fn = lpips.LPIPS(net='alex').to(device)
 
     # === FID 目录准备 ===
     fid_real = os.path.join(logdir, "fid_real")
@@ -235,12 +255,61 @@ def evaluate(logdir, ckpt_name, args):
     # === FID ===
     fid = fid_score.calculate_fid_given_paths([fid_real, fid_fake], batch_size=2, device=device, dims=2048)
     
-    psnr=np.mean(psnr_list)
-    ssim=np.mean(ssim_list)
+    psnr_array=np.array(psnr_list)
+    ssim_array=np.array(ssim_list)
+
+    psnr,b_l_psnr,b_u_psnr=bootstrap_ci(psnr_array)
+    ssim,b_l_ssim,b_u_ssim=bootstrap_ci(ssim_array)
+    psnr_max=np.max(psnr_array)
+    psnr_min=np.min(psnr_array)
+    ssim_max=np.max(ssim_array)
+    ssim_min=np.min(ssim_array)
     lpips_val=np.mean(lpips_list)
     enl=np.mean(enl_list)
     epi=np.mean(epi_list)
 
+    # 保存结果
+    # 保存每个样本的指标到 npz 文件
+    metric_save_path = os.path.join(
+        logdir, 
+        f"metrics_{ckpt_name.replace('.ckpt', '')}_ddim_steps{args.ddpm_steps if args.ddpm_steps else 'default'}.npz"
+    )
+
+    np.savez(metric_save_path,
+            psnr=np.array(psnr_list),
+            ssim=np.array(ssim_list),
+            lpips=np.array(lpips_list),
+            enl=np.array(enl_list),
+            epi=np.array(epi_list))
+    print(f"详细指标已保存到: {metric_save_path}")
+
+    res_dict = {
+        "data_path": metric_save_path,   # 每个样本指标保存的 npz 文件路径
+
+        # PSNR
+        "psnr": psnr,
+        "psnr_max": psnr_max,
+        "psnr_min": psnr_min,
+        "psnr_ci_lower": b_l_psnr,
+        "psnr_ci_upper": b_u_psnr,
+
+        # SSIM
+        "ssim": ssim,
+        "ssim_max": ssim_max,
+        "ssim_min": ssim_min,
+        "ssim_ci_lower": b_l_ssim,
+        "ssim_ci_upper": b_u_ssim,
+
+        # LPIPS
+        "lpips": lpips_val,
+
+        # FID
+        "fid": fid,
+
+        # ENL & EPI
+        "enl": enl,
+        "epi": epi,
+    }
     # === 打印结果 ===
     print("\n==== 评估指标 ====")
     if args.use_ddim:
@@ -256,35 +325,10 @@ def evaluate(logdir, ckpt_name, args):
     print(f"ENL: {np.mean(enl_list):.4f}")
     print(f"EPI: {np.mean(epi_list):.4f}")
 
-    # 保存结果
-    sampler_name = f"ddim_steps{args.ddim_steps}" if args.use_ddim else "ddpm"
-    results_file = os.path.join(
-        logdir, 
-        f"eval_results_{ckpt_name.replace('.ckpt', '')}_{sampler_name}.txt"
-    )
-    with open(results_file, 'w') as f:
-        f.write(f"评估结果\n")
-        f.write(f"检查点: {ckpt_name}\n")
-        if args.use_ddim:
-            f.write(f"采样方式: DDIM\n")
-            f.write(f"步数: {args.ddim_steps}\n")
-            f.write(f"eta: {args.ddim_eta}\n")
-        else:
-            f.write(f"采样方式: DDPM\n")
-        f.write(f"==================\n")
-        f.write(f"PSNR: {np.mean(psnr_list):.4f}\n")
-        f.write(f"SSIM: {np.mean(ssim_list):.4f}\n")
-        f.write(f"LPIPS: {np.mean(lpips_list):.4f}\n")
-        f.write(f"FID: {fid:.4f}\n")
-        f.write(f"ENL: {np.mean(enl_list):.4f}\n")
-        f.write(f"EPI: {np.mean(epi_list):.4f}\n")
-
-    print(f"\n结果已保存到: {results_file}")
-
     shutil.rmtree(fid_real)
     shutil.rmtree(fid_fake)  
 
-    return psnr,ssim,lpips_val,fid,enl,epi,
+    return res_dict
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -299,7 +343,7 @@ if __name__ == "__main__":
     parser.add_argument("--use_ddim", action="store_true", help="使用DDIM采样器")
     parser.add_argument("--ddim_steps", type=int, default=50, help="DDIM采样步数")
     parser.add_argument("--ddim_eta", type=float, default=0.0, help="DDIM的eta参数（0.0=确定性）")
-
+    parser.add_argument("--save_path",type=str,default="eval_results.csv",help="指定评估指标数据表的写入路径")
     args = parser.parse_args()
 
     # prepare eval INFO
@@ -327,6 +371,7 @@ if __name__ == "__main__":
     print(f"测试集: {args.gt_path}")
     print(f"GPU: {args.gpu}")
     print(f"采样器: {mode}")
+    print(f"数据表写入位置: {args.save_path}")
     if args.use_ddim:
         print(f"采样器: DDIM")
         print(f"步数: {args.ddim_steps}")
@@ -334,7 +379,7 @@ if __name__ == "__main__":
     print("===================\n")
 
     # run eval
-    psnr, ssim, lpips_val, fid, enl, epi = evaluate(args.logdir, args.ckpt_name, args)
+    res_dict= evaluate(args.logdir, args.ckpt_name, args)
 
     print(f"\n===== 评估配置 =====")
     print(f"实验名称: {exp_name}")
@@ -353,12 +398,13 @@ if __name__ == "__main__":
     
     # === 打印结果 ===
     print("\n==== 评估指标 ====")
-    print(f"PSNR: {psnr:.4f}")
-    print(f"SSIM: {ssim:.4f}")
-    print(f"LPIPS: {lpips_val:.4f}")
-    print(f"FID: {fid:.4f}")
-    print(f"ENL: {enl:.4f}")
-    print(f"EPI: {epi:.4f}")
+    print(f"DDPM步数: {args.ddpm_steps}")
+    print(f"PSNR: {res_dict['psnr']:.4f} (min={res_dict['psnr_min']:.4f}, max={res_dict['psnr_max']:.4f}, CI=[{res_dict['psnr_ci_lower']:.4f}, {res_dict['psnr_ci_upper']:.4f}])")
+    print(f"SSIM: {res_dict['ssim']:.4f} (min={res_dict['ssim_min']:.4f}, max={res_dict['ssim_max']:.4f}, CI=[{res_dict['ssim_ci_lower']:.4f}, {res_dict['ssim_ci_upper']:.4f}])")
+    print(f"LPIPS: {res_dict['lpips']:.4f}")
+    print(f"FID: {res_dict['fid']:.4f}")
+    print(f"ENL: {res_dict['enl']:.4f}")
+    print(f"EPI: {res_dict['epi']:.4f}")
 
     # write to database
     result = {
@@ -367,26 +413,41 @@ if __name__ == "__main__":
         "gt_path": gt_path,
         "mode": mode,
         "dataset": dataset,
-        "ddpm_steps": None if args.use_ddim else 1000,  # 假设默认是1000步DDPM
-        "ddim_steps": args.ddim_steps if args.use_ddim else None,
-        "eta": args.ddim_eta if args.use_ddim else None,
-        "psnr": psnr,
-        "ssim": ssim,
-        "lpips": lpips_val,
-        "fid": fid,
-        "enl": enl,
-        "epi": epi,
+        "ddpm_steps": args.ddpm_steps if args.ddpm_steps else 1000,  # 默认是1000步DDPM
+        "ddim_steps": None,
+        "eta": None,
     }
+    result.update(res_dict)
 
     # 保存到 CSV
-    save_path = "eval_results.csv"
+    save_path = args.save_path
     lock_path = save_path + ".lock"
 
-    with FileLock(lock_path):
-        if os.path.exists(save_path):
-            df = pd.read_csv(save_path)
-            df = pd.concat([df, pd.DataFrame([result])], ignore_index=True)
-        else:
-            df = pd.DataFrame([result])
+    # 明确指定列顺序（支持旧指标+新指标）
+    columns_order = [
+        "exp_name","ckpt_name", "dataset", "gt_path","mode","ddim_steps", "eta", "ddpm_steps",
+        "psnr", "psnr_max", "psnr_min", "psnr_ci_lower", "psnr_ci_upper",
+        "ssim", "ssim_max", "ssim_min", "ssim_ci_lower", "ssim_ci_upper",
+        "enl", "epi", "fid", "lpips",  
+        "data_path"   # 每个样本的npz保存路径
+    ]
 
+    with FileLock(lock_path):
+        new_df = pd.DataFrame([result])
+
+        # 强制按指定列顺序 reindex（多余列丢弃，缺失列补NaN）
+        new_df = new_df.reindex(columns=columns_order)
+
+        if os.path.exists(save_path):
+            old_df = pd.read_csv(save_path)
+
+            # 对齐老数据，确保列顺序一致
+            old_df = old_df.reindex(columns=columns_order)
+
+            # 拼接
+            df = pd.concat([old_df, new_df], ignore_index=True)
+        else:
+            df = new_df
+
+        # 保存
         df.to_csv(save_path, index=False)
