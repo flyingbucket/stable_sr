@@ -1,26 +1,7 @@
 from tqdm import tqdm
 from datetime import datetime
 import subprocess
-
-logdirs = [
-    "logs/2025-07-14T18-43-47_W_KL_SO_2",
-    "logs/2025-07-14T18-45-43_W_KL_CS_2",
-    "logs/2025-07-17T16-05-07_W_KLP_SO",
-    "logs/2025-07-18T15-40-30_W_KLP_SODG",
-    "logs/2025-07-14T18-46-39_Ori_none_2",
-    "logs/2025-07-15T16-18-12_Ori_SO",
-]
-
-gpu = 0
-ckpt_name = "last.ckpt"
-batch_size = 10
-gt_path = "../DataStore/WHU_512_small"
-ddpm_step = 200
-ddim_step = 200
-save_path="eval_results_new.csv"
-
-success_tasks = []
-failed_tasks = []
+import json
 
 def timestamp():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -37,40 +18,77 @@ def print_summary():
             print(f"\033[91m✘ {f}\033[0m")
     print()
 
-pbar = tqdm(total=len(logdirs)*4, desc="Total Progress", dynamic_ncols=True)
+# load tasks
+with open("tasks.json", "r") as f:
+    config = json.load(f)
 
-for logdir in logdirs:
-    for mode, script, step_flag, step_value, dataset in [
-        ("DDPM original", "eval_ddpm.py", "--ddpm_step", ddpm_step, None),
-        ("DDPM degrade", "eval_ddpm.py", "--ddpm_step", ddpm_step, "basicsr.data.wavelet_dataset.WaveletSRDGDataset"),
-        ("DDIM original", "eval_ddim.py", "--ddim_step", ddim_step, None),
-        ("DDIM degrade", "eval_ddim.py", "--ddim_step", ddim_step, "basicsr.data.wavelet_dataset.WaveletSRDGDataset"),
-    ]:
-        cmd = [
-            "python", script,
-            "--logdir", logdir,
-            "--gpu", str(gpu),
-            "--ckpt_name", ckpt_name,
-            "--batch_size", str(batch_size),
-            "--gt_path", gt_path,
-            step_flag, str(step_value),
-            "--save_path", save_path
-        ]
-        if "ddim" in script:
-            cmd += ["--ddim_eta", "0.5"]
-        if dataset:
-            cmd += ["--dataset", dataset]
+tasks = config["tasks"]
+skip = config.get("skip", [])
+primary=config.get("primary",[])
+gpu = 0
+ckpt_name = "last.ckpt"
+batch_size = 10
+gt_path = "../DataStore/WHU_512_small"
+ddpm_step = 200
+ddim_step = 200
+eta=0.5
+save_path="eval_results_new.csv"
 
-        try:
-            subprocess.run(cmd, check=True)
-            msg = f"{mode} success: {logdir}"
-            success_tasks.append(msg)
-        except Exception as e:
-            msg = f"{mode} failed: {logdir}"
-            failed_tasks.append(msg)
+success_tasks = []
+failed_tasks = []
 
-        pbar.update(1)
-        print_summary()
+
+pbar = tqdm(total=len(tasks), desc="Total Progress", dynamic_ncols=True)
+
+while tasks:
+    if primary:
+        task_id=str(primary.pop(0))
+        task=tasks.pop(task_id)
+    else:
+        task_id,task=tasks.popitem()
+    print(f"\033[94m[{timestamp()}] Evaluating task {int(task_id)}\033[0m")
+    # print(f"evaluating task {int(task_id)}")
+
+    mode = task["mode"]
+    logdir = task["logdir"]
+    script = task["script"]
+    step_flag = task["step_flag"]
+    step_value = task["step_value"]
+    dataset = task["dataset"]
+
+    # === 跳过逻辑（例）===
+    if int(task_id) in skip:  
+        # print(f"Skiping task {int(task_id)}")
+        print(f"\033[94mSkipping task {int(task_id)}\033[0m")
+        continue
+
+    cmd = [
+        "python", script,
+        "--logdir", logdir,
+        "--gpu", str(gpu),
+        "--ckpt_name", ckpt_name,
+        "--batch_size", str(batch_size),
+        "--gt_path", gt_path,
+        step_flag, str(step_value),
+        "--save_path", save_path
+    ]
+
+    if "ddim" in script:
+        cmd += ["--ddim_eta", str(eta)]
+
+    if dataset:
+        cmd += ["--dataset", dataset]
+
+    try:
+        subprocess.run(cmd, check=True)
+        msg = f"[{task_id}] {mode} success: {logdir}"
+        success_tasks.append(msg)
+    except Exception as e:
+        msg = f"[{task_id}] {mode} failed: {logdir}"
+        failed_tasks.append(msg)
+
+    pbar.update(1)
+    print_summary()
 
 pbar.close()
 
