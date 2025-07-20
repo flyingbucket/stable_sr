@@ -381,30 +381,6 @@ if __name__ == "__main__":
     # run eval
     res_dict= evaluate(args.logdir, args.ckpt_name, args)
 
-    print(f"\n===== 评估配置 =====")
-    print(f"实验名称: {exp_name}")
-    print(f"MODE: {mode}")
-    print(f"日志目录: {args.logdir}")
-    print(f"检查点: {args.ckpt_name}")
-    print(f"数据模型: {dataset}")
-    print(f"测试集: {args.gt_path}")
-    print(f"GPU: {args.gpu}")
-    print(f"采样器: {mode}")
-    if args.use_ddim:
-        print(f"采样器: DDIM")
-        print(f"步数: {args.ddim_steps}")
-        print(f"eta: {args.ddim_eta}")
-    print("===================\n")
-    
-    # === 打印结果 ===
-    print("\n==== 评估指标 ====")
-    print(f"DDPM步数: {args.ddpm_steps}")
-    print(f"PSNR: {res_dict['psnr']:.4f} (min={res_dict['psnr_min']:.4f}, max={res_dict['psnr_max']:.4f}, CI=[{res_dict['psnr_ci_lower']:.4f}, {res_dict['psnr_ci_upper']:.4f}])")
-    print(f"SSIM: {res_dict['ssim']:.4f} (min={res_dict['ssim_min']:.4f}, max={res_dict['ssim_max']:.4f}, CI=[{res_dict['ssim_ci_lower']:.4f}, {res_dict['ssim_ci_upper']:.4f}])")
-    print(f"LPIPS: {res_dict['lpips']:.4f}")
-    print(f"FID: {res_dict['fid']:.4f}")
-    print(f"ENL: {res_dict['enl']:.4f}")
-    print(f"EPI: {res_dict['epi']:.4f}")
 
     # write to database
     result = {
@@ -451,3 +427,13 @@ if __name__ == "__main__":
 
         # 保存
         df.to_csv(save_path, index=False)
+
+    # === 打印结果 ===
+    print("\n==== 评估指标 ====")
+    print(f"DDPM步数: {args.ddpm_steps}")
+    print(f"PSNR: {res_dict['psnr']:.4f} (min={res_dict['psnr_min']:.4f}, max={res_dict['psnr_max']:.4f}, CI=[{res_dict['psnr_ci_lower']:.4f}, {res_dict['psnr_ci_upper']:.4f}])")
+    print(f"SSIM: {res_dict['ssim']:.4f} (min={res_dict['ssim_min']:.4f}, max={res_dict['ssim_max']:.4f}, CI=[{res_dict['ssim_ci_lower']:.4f}, {res_dict['ssim_ci_upper']:.4f}])")
+    print(f"LPIPS: {res_dict['lpips']:.4f}")
+    print(f"FID: {res_dict['fid']:.4f}")
+    print(f"ENL: {res_dict['enl']:.4f}")
+    print(f"EPI: {res_dict['epi']:.4f}")
