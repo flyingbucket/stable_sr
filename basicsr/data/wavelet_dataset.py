@@ -96,6 +96,7 @@ class WaveletSRDataset(Dataset):
             "gt_image": img_gt,  # [1, H, W]
             "lq_image": lq_up,  # [1, H, W]
             "wavelet": wavelet,  # [4, H/2, W/2]
+            "gt_path":path
         }
 
     def __len__(self):
@@ -243,6 +244,7 @@ class WaveletSRDGDataset(Dataset):
             "gt_image": img_gt,  # [1, H, W]
             "lq_image": lq_up,  # [1, H, W]
             "wavelet": wavelet,  # [4, H/2, W/2]
+            "gt_path":path
         }
 
     def __len__(self):
@@ -286,25 +288,6 @@ class OriginalDataset(Dataset):
         left = (w - size) // 2
         return img[:, top : top + size, left : left + size]
 
-    # def _dwt_tensor(self, img_tensor):
-    #     # img_tensor: [1, H, W]
-    #     img_np = img_tensor.squeeze(0).numpy()  # → [H, W]
-    #     coeffs2 = pywt.dwt2(img_np, self.wavelet)
-    #     LL, (LH, HL, HH) = coeffs2  # 每个 shape: [H/2, W/2]
-
-    #     # 转成 tensor，并拼接
-    #     dwt_tensor = torch.stack(
-    #         [
-    #             torch.from_numpy(LL),
-    #             torch.from_numpy(LH),
-    #             torch.from_numpy(HL),
-    #             torch.from_numpy(HH),
-    #         ],
-    #         dim=0,
-    #     ).float()  # [4, H/2, W/2]
-
-    #     return dwt_tensor
-
     def __getitem__(self, index):
         path = self.image_paths[index]
         img_gt = self._load_image(path)  # [1, H, W]
@@ -330,6 +313,7 @@ class OriginalDataset(Dataset):
         return {
             "gt_image": img_gt,  # [1, H, W]
             "lq_image": lq_up,  # [1, H, W]
+            "gt_path":path
             # "wavelet": wavelet,  # [4, H/2, W/2]
         }
 
