@@ -6,7 +6,7 @@ import json
 def timestamp():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-def print_summary():
+def print_summary(finished_tasks):
     print(f"\n[{timestamp()}] \033[1m\033[94m[Summary so far]\033[0m")
     if success_tasks:
         print("\033[92m[Succeeded:]\033[0m")
@@ -16,6 +16,7 @@ def print_summary():
         print("\033[91m[Failed:]\033[0m")
         for f in failed_tasks:
             print(f"\033[91m✘ {f}\033[0m")
+    print(f"\nSo far finished tasks {finished_tasks}")
     print()
 
 # load tasks
@@ -39,7 +40,7 @@ failed_tasks = []
 
 
 pbar = tqdm(total=len(tasks), desc="Total Progress", dynamic_ncols=True)
-
+finished_tasks=[]
 while tasks:
     if primary:
         task_id=str(primary.pop(0))
@@ -86,7 +87,7 @@ while tasks:
     except Exception as e:
         msg = f"[{task_id}] {mode} failed: {logdir}"
         failed_tasks.append(msg)
-
+    finished_tasks.append(task_id)
     pbar.update(1)
     print_summary()
 
