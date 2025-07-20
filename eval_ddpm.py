@@ -132,6 +132,14 @@ def setup_timestep_compression(model, ddpm_steps, device):
 
     return sqrt_alphas_cumprod, sqrt_one_minus_alphas_cumprod
 
+def bootstrap_ci(data, confidence=0.95, n_bootstrap=10000):
+    data = np.array(data)
+    boot_samples = np.random.choice(data, (n_bootstrap, len(data)), replace=True)
+    boot_means = np.mean(boot_samples, axis=1)
+    lower = np.percentile(boot_means, (1-confidence)/2*100)
+    upper = np.percentile(boot_means, (1+confidence)/2*100)
+    return np.mean(data), lower, upper
+
 def evaluate(logdir, ckpt_name, args):
     if args.gpu == -1 or not torch.cuda.is_available():
         device = torch.device("cpu")
@@ -284,38 +292,66 @@ def evaluate(logdir, ckpt_name, args):
     # === FID ===
     fid = fid_score.calculate_fid_given_paths([fid_real, fid_fake], batch_size=2, device=device, dims=2048)
 
-    psnr=np.mean(psnr_list)
-    psnr_max=np.max(psnr_list)
-    psnr_min=np.min(psnr_list)
-    ssim=np.mean(ssim_list)
-    ssim_max=np.max(ssim_list)
-    ssim_min=np.min(ssim_list)
+    psnr_array=np.array(psnr_list)
+    ssim_array=np.array(ssim_list)
+
+    psnr,b_l_psnr,b_u_psnr=bootstrap_ci(psnr_array)
+    ssim,b_l_ssim,b_u_ssim=bootstrap_ci(ssim_array)
+    psnr_max=np.max(psnr_array)
+    psnr_min=np.min(psnr_array)
+    ssim_max=np.max(ssim_array)
+    ssim_min=np.min(ssim_array)
     lpips_val=np.mean(lpips_list)
     enl=np.mean(enl_list)
     epi=np.mean(epi_list)
 
     # 保存结果
-    results_file = os.path.join(
+    # 保存每个样本的指标到 npz 文件
+    metric_save_path = os.path.join(
         logdir, 
-        f"eval_results_{ckpt_name.replace('.ckpt', '')}_steps{args.ddpm_steps if args.ddpm_steps else 'default'}.txt"
+        f"metrics_{ckpt_name.replace('.ckpt', '')}_steps{args.ddpm_steps if args.ddpm_steps else 'default'}.npz"
     )
-    with open(results_file, 'w') as f:
-        f.write(f"评估结果\n")
-        f.write(f"检查点: {ckpt_name}\n")
-        f.write(f"DDPM步数: {args.ddpm_steps if args.ddpm_steps else '默认'}\n")
-        f.write(f"==================\n")
-        f.write(f"PSNR: {np.mean(psnr_list):.4f}\n")
-        f.write(f"SSIM: {np.mean(ssim_list):.4f}\n")
-        f.write(f"LPIPS: {np.mean(lpips_list):.4f}\n")
-        f.write(f"FID: {fid:.4f}\n")
-        f.write(f"ENL: {np.mean(enl_list):.4f}\n")
-        f.write(f"EPI: {np.mean(epi_list):.4f}\n")
 
-    print(f"\n结果已保存到: {results_file}")
+    np.savez(metric_save_path,
+            psnr=np.array(psnr_list),
+            ssim=np.array(ssim_list),
+            lpips=np.array(lpips_list),
+            enl=np.array(enl_list),
+            epi=np.array(epi_list))
+
+    print(f"详细指标已保存到: {metric_save_path}")
+
+    res_dict = {
+        "data_path": metric_save_path,   # 每个样本指标保存的 npz 文件路径
+
+        # PSNR
+        "psnr": psnr,
+        "psnr_max": psnr_max,
+        "psnr_min": psnr_min,
+        "psnr_ci_lower": b_l_psnr,
+        "psnr_ci_upper": b_u_psnr,
+
+        # SSIM
+        "ssim": ssim,
+        "ssim_max": ssim_max,
+        "ssim_min": ssim_min,
+        "ssim_ci_lower": b_l_ssim,
+        "ssim_ci_upper": b_u_ssim,
+
+        # LPIPS
+        "lpips": lpips_val,
+
+        # FID
+        "fid": fid,
+
+        # ENL & EPI
+        "enl": enl,
+        "epi": epi,
+    }
 
     shutil.rmtree(fid_real)
     shutil.rmtree(fid_fake)  
-    return psnr,psnr_max,psnr_min,ssim,ssim_max,ssim_min,lpips_val,fid,enl,epi,
+    return res_dict
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -355,7 +391,8 @@ if __name__ == "__main__":
     print(f"DDPM步数: {args.ddpm_steps}")
     print("===================\n")
     print("Loading Model ...") 
-    psnr,psnr_max,psnr_min,ssim,ssim_max,ssim_min,lpips_val,fid,enl,epi= evaluate(args.logdir, args.ckpt_name, args)
+    
+    res_dict= evaluate(args.logdir, args.ckpt_name, args)
 
     print(f"\n===== 评估配置 =====")
     print(f"实验名称: {exp_name}")
@@ -371,12 +408,12 @@ if __name__ == "__main__":
     # === 打印结果 ===
     print("\n==== 评估指标 ====")
     print(f"DDPM步数: {args.ddpm_steps}")
-    print(f"PSNR: {psnr:.4f}")
-    print(f"SSIM: {ssim:.4f}")
-    print(f"LPIPS: {lpips_val:.4f}")
-    print(f"FID: {fid:.4f}")
-    print(f"ENL: {enl:.4f}")
-    print(f"EPI: {epi:.4f}")
+    print(f"PSNR: {res_dict['psnr']:.4f} (min={res_dict['psnr_min']:.4f}, max={res_dict['psnr_max']:.4f}, CI=[{res_dict['psnr_ci_lower']:.4f}, {res_dict['psnr_ci_upper']:.4f}])")
+    print(f"SSIM: {res_dict['ssim']:.4f} (min={res_dict['ssim_min']:.4f}, max={res_dict['ssim_max']:.4f}, CI=[{res_dict['ssim_ci_lower']:.4f}, {res_dict['ssim_ci_upper']:.4f}])")
+    print(f"LPIPS: {res_dict['lpips']:.4f}")
+    print(f"FID: {res_dict['fid']:.4f}")
+    print(f"ENL: {res_dict['enl']:.4f}")
+    print(f"EPI: {res_dict['epi']:.4f}")
 
     
     # write to database
@@ -389,44 +426,38 @@ if __name__ == "__main__":
         "ddpm_steps": args.ddpm_steps if args.ddpm_steps else 1000,  # 默认是1000步DDPM
         "ddim_steps": None,
         "eta": None,
-        "psnr": psnr,
-        "psnr_max": psnr_max,
-        "psnr_min": psnr_min,
-        "ssim": ssim,
-        "ssim_max": ssim_max,
-        "ssim_min": ssim_min,
-        "lpips": lpips_val,
-        "fid": fid,
-        "enl": enl,
-        "epi": epi,
     }
+    result.update(res_dict)
 
     # 保存到 CSV
     save_path = "eval_results.csv"
     lock_path = save_path + ".lock"
 
+    # 明确指定列顺序（支持旧指标+新指标）
+    columns_order = [
+        "exp_name","ckpt_name", "dataset", "gt_path","mode","ddim_steps", "eta", "ddpm_steps",
+        "psnr", "psnr_max", "psnr_min", "psnr_ci_lower", "psnr_ci_upper",
+        "ssim", "ssim_max", "ssim_min", "ssim_ci_lower", "ssim_ci_upper",
+        "enl", "epi", "fid", "lpips",  
+        "data_path"   # 每个样本的npz保存路径
+    ]
+
     with FileLock(lock_path):
         new_df = pd.DataFrame([result])
+
+        # 强制按指定列顺序 reindex（多余列丢弃，缺失列补NaN）
+        new_df = new_df.reindex(columns=columns_order)
 
         if os.path.exists(save_path):
             old_df = pd.read_csv(save_path)
 
-            # 自动对齐列，补充缺失值为 NaN
-            combined_df, _ = old_df.align(new_df, join="outer", axis=1)
+            # 对齐老数据，确保列顺序一致
+            old_df = old_df.reindex(columns=columns_order)
 
-            # 再拼接
-            df = pd.concat([combined_df, new_df], ignore_index=True)
-
+            # 拼接
+            df = pd.concat([old_df, new_df], ignore_index=True)
         else:
             df = new_df
 
         # 保存
         df.to_csv(save_path, index=False)
-    # with FileLock(lock_path):
-    #     if os.path.exists(save_path):
-    #         df = pd.read_csv(save_path)
-    #         df = pd.concat([df, pd.DataFrame([result])], ignore_index=True)
-    #     else:
-    #         df = pd.DataFrame([result])
-
-    #     df.to_csv(save_path, index=False)
