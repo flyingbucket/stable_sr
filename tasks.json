@@ -1,0 +1,198 @@
+{
+    "tasks": {
+        "1": {
+            "logdir": "logs/2025-07-14T18-43-47_W_KL_SO_2",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null
+        },
+        "2": {
+            "logdir": "logs/2025-07-14T18-43-47_W_KL_SO_2",
+            "mode": "DDPM degrade",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": "basicsr.data.wavelet_dataset.WaveletSRDGDataset"
+        },
+        "3": {
+            "logdir": "logs/2025-07-14T18-43-47_W_KL_SO_2",
+            "mode": "DDIM original",
+            "script": "eval_ddim.py",
+            "step_flag": "--ddim_step",
+            "step_value": 200,
+            "dataset": null
+        },
+        "4": {
+            "logdir": "logs/2025-07-14T18-43-47_W_KL_SO_2",
+            "mode": "DDIM degrade",
+            "script": "eval_ddim.py",
+            "step_flag": "--ddim_step",
+            "step_value": 200,
+            "dataset": "basicsr.data.wavelet_dataset.WaveletSRDGDataset"
+        },
+        "5": {
+            "logdir": "logs/2025-07-14T18-45-43_W_KL_CS_2",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null
+        },
+        "6": {
+            "logdir": "logs/2025-07-14T18-45-43_W_KL_CS_2",
+            "mode": "DDPM degrade",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": "basicsr.data.wavelet_dataset.WaveletSRDGDataset"
+        },
+        "7": {
+            "logdir": "logs/2025-07-14T18-45-43_W_KL_CS_2",
+            "mode": "DDIM original",
+            "script": "eval_ddim.py",
+            "step_flag": "--ddim_step",
+            "step_value": 200,
+            "dataset": null
+        },
+        "8": {
+            "logdir": "logs/2025-07-14T18-45-43_W_KL_CS_2",
+            "mode": "DDIM degrade",
+            "script": "eval_ddim.py",
+            "step_flag": "--ddim_step",
+            "step_value": 200,
+            "dataset": "basicsr.data.wavelet_dataset.WaveletSRDGDataset"
+        },
+        "9": {
+            "logdir": "logs/2025-07-17T16-05-07_W_KLP_SO",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null
+        },
+        "10": {
+            "logdir": "logs/2025-07-17T16-05-07_W_KLP_SO",
+            "mode": "DDPM degrade",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": "basicsr.data.wavelet_dataset.WaveletSRDGDataset"
+        },
+        "11": {
+            "logdir": "logs/2025-07-17T16-05-07_W_KLP_SO",
+            "mode": "DDIM original",
+            "script": "eval_ddim.py",
+            "step_flag": "--ddim_step",
+            "step_value": 200,
+            "dataset": null
+        },
+        "12": {
+            "logdir": "logs/2025-07-17T16-05-07_W_KLP_SO",
+            "mode": "DDIM degrade",
+            "script": "eval_ddim.py",
+            "step_flag": "--ddim_step",
+            "step_value": 200,
+            "dataset": "basicsr.data.wavelet_dataset.WaveletSRDGDataset"
+        },
+        "13": {
+            "logdir": "logs/2025-07-18T15-40-30_W_KLP_SODG",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null
+        },
+        "14": {
+            "logdir": "logs/2025-07-18T15-40-30_W_KLP_SODG",
+            "mode": "DDPM degrade",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": "basicsr.data.wavelet_dataset.WaveletSRDGDataset"
+        },
+        "15": {
+            "logdir": "logs/2025-07-18T15-40-30_W_KLP_SODG",
+            "mode": "DDIM original",
+            "script": "eval_ddim.py",
+            "step_flag": "--ddim_step",
+            "step_value": 200,
+            "dataset": null
+        },
+        "16": {
+            "logdir": "logs/2025-07-18T15-40-30_W_KLP_SODG",
+            "mode": "DDIM degrade",
+            "script": "eval_ddim.py",
+            "step_flag": "--ddim_step",
+            "step_value": 200,
+            "dataset": "basicsr.data.wavelet_dataset.WaveletSRDGDataset"
+        },
+        "17": {
+            "logdir": "logs/2025-07-14T18-46-39_Ori_none_2",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null
+        },
+        "18": {
+            "logdir": "logs/2025-07-14T18-46-39_Ori_none_2",
+            "mode": "DDPM degrade",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": "basicsr.data.wavelet_dataset.WaveletSRDGDataset"
+        },
+        "19": {
+            "logdir": "logs/2025-07-14T18-46-39_Ori_none_2",
+            "mode": "DDIM original",
+            "script": "eval_ddim.py",
+            "step_flag": "--ddim_step",
+            "step_value": 200,
+            "dataset": null
+        },
+        "20": {
+            "logdir": "logs/2025-07-14T18-46-39_Ori_none_2",
+            "mode": "DDIM degrade",
+            "script": "eval_ddim.py",
+            "step_flag": "--ddim_step",
+            "step_value": 200,
+            "dataset": "basicsr.data.wavelet_dataset.WaveletSRDGDataset"
+        },
+        "21": {
+            "logdir": "logs/2025-07-15T16-18-12_Ori_SO",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null
+        },
+        "22": {
+            "logdir": "logs/2025-07-15T16-18-12_Ori_SO",
+            "mode": "DDPM degrade",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": "basicsr.data.wavelet_dataset.WaveletSRDGDataset"
+        },
+        "23": {
+            "logdir": "logs/2025-07-15T16-18-12_Ori_SO",
+            "mode": "DDIM original",
+            "script": "eval_ddim.py",
+            "step_flag": "--ddim_step",
+            "step_value": 200,
+            "dataset": null
+        },
+        "24": {
+            "logdir": "logs/2025-07-15T16-18-12_Ori_SO",
+            "mode": "DDIM degrade",
+            "script": "eval_ddim.py",
+            "step_flag": "--ddim_step",
+            "step_value": 200,
+            "dataset": "basicsr.data.wavelet_dataset.WaveletSRDGDataset"
+        }
+    },
+    "skip": [],
+    "primary":[14,13,16,15]
+}
