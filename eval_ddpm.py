@@ -214,14 +214,28 @@ def evaluate(logdir, ckpt_name, args):
             return np.zeros_like(img, dtype=np.uint8)
         norm_img = (img - img_min) / (img_max - img_min) * 255.0
         return norm_img.astype(np.uint8)/255.0
-    # def min_max_normalize(img): 
-    #     norm_img = cv2.normalize(img, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
-    #     return norm_img/255.0
+
+
+    # prepare saving df
+    match = re.match(r"\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}_(.*)", basename)
+    if match:
+        exp_name = match.group(1)
+    else:
+        raise ValueError(f"无法从日志目录名 '{args.logdir}' 中提取实验名称")
+    dataset_name=args.dataset if args.dataset else config.data.params.validation.target
+    dataset_name=str(dataset).rsplit(".",1)[-1]
+    ckpt_name_in_df_path = os.path.splitext(ckpt_name)[0]
+    df_dir = os.path.join("eval_unet", exp_name, ckpt_name_in_df_path)
+    os.makedirs(df_dir, exist_ok=True)
+    df_name = f"{mode}_{args.ddpm_steps}_{dataset_name}.csv"
+    df_path = os.path.join(df_dir, df_name)
+    assert os.path.exists(df_dir) ,f"The df dir {df_dir} should be made!"
+
 
     with torch.no_grad():
         with tqdm(total=len(dataloader), desc="Processing batches", leave=True) as pbar:
             for batch in dataloader:   
-                batch = {k: v.to(device) for k, v in batch.items()}
+                batch = {k: (v.to(device) if torch.is_tensor(v) else v) for k, v in batch.items()}
 
                 # === 构建log_images的参数 ===
                 log_kwargs = {
@@ -250,6 +264,7 @@ def evaluate(logdir, ckpt_name, args):
 
                 B = input_hq.shape[0]
 
+                metrics_of_this_batch=[]
                 for i in range(B):
                     gt = min_max_normalize(input_hq[i,0])
                     pred = min_max_normalize(samples[i,0])
@@ -286,6 +301,29 @@ def evaluate(logdir, ckpt_name, args):
                     pred_edges = cv2.Sobel(pred, cv2.CV_64F, 1, 1, ksize=3)
                     epi = np.sum(np.abs(pred_edges)) / (np.sum(np.abs(gt_edges)) + 1e-8)
                     epi_list.append(epi)
+                    
+                    img_path=batch['gt_path'][i]
+                    assert isinstance(img_path,str),f"img_path should be be a str,now it is a {type(img_path)}. Check your dataset and dataloader"
+                    img_name=os.path.basename(img_path)
+                    metrics_of_this_img={
+                        'img':img_name,
+                        'psnr':psnr,
+                        'ssim':ssim,
+                        'lpips':lp.item(),
+                        'enl':enl,
+                        'epi':epi
+
+                    }
+                    metrics_of_this_batch.append(metrics_of_this_img)
+               
+                df_batch = pd.DataFrame(metrics_of_this_batch)
+                df_batch.to_csv(
+                    df_path,
+                    mode='a', 
+                    header=not os.path.exists(df_path),
+                    index=False,
+                    encoding='utf-8'
+                )
 
                 pbar.update(1)
 
