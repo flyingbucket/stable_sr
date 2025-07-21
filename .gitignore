@@ -141,3 +141,4 @@ outputs/
 configs/*
 debug_out/
 *.sh
+.fuse_hidden*
