@@ -193,6 +193,6 @@
             "dataset": "basicsr.data.wavelet_dataset.WaveletSRDGDataset"
         }
     },
-    "skip": [],
+    "skip": [14],
     "primary":[14,13,16,15]
 }
