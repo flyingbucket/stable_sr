@@ -3,8 +3,10 @@ from datetime import datetime
 import subprocess
 import json
 
+
 def timestamp():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
 
 def print_summary(finished_tasks):
     print(f"\n[{timestamp()}] \033[1m\033[94m[Summary so far]\033[0m")
@@ -19,34 +21,35 @@ def print_summary(finished_tasks):
     print(f"\nSo far finished tasks {finished_tasks}")
     print()
 
+
 # load tasks
 with open("tasks.json", "r") as f:
     config = json.load(f)
 
 tasks = config["tasks"]
 skip = config.get("skip", [])
-primary=config.get("primary",[])
+primary = config.get("primary", [])
 gpu = 0
 ckpt_name = "last.ckpt"
 batch_size = 10
 gt_path = "../DataStore/WHU_512_small"
 ddpm_step = 200
 ddim_step = 200
-eta=0.5
-save_path="eval_results_new.csv"
+eta = 0.5
+save_path = "eval_results_new.csv"
 
 success_tasks = []
 failed_tasks = []
 
 
 pbar = tqdm(total=len(tasks), desc="Total Progress", dynamic_ncols=True)
-finished_tasks=[]
+finished_tasks = []
 while tasks:
     if primary:
-        task_id=str(primary.pop(0))
-        task=tasks.pop(task_id)
+        task_id = str(primary.pop(0))
+        task = tasks.pop(task_id)
     else:
-        task_id,task=tasks.popitem()
+        task_id, task = tasks.popitem()
     print(f"\033[94m[{timestamp()}] Evaluating task {int(task_id)}\033[0m")
     # print(f"evaluating task {int(task_id)}")
 
@@ -58,20 +61,28 @@ while tasks:
     dataset = task["dataset"]
 
     # === 跳过逻辑（例）===
-    if int(task_id) in skip:  
+    if int(task_id) in skip:
         # print(f"Skiping task {int(task_id)}")
         print(f"\033[94mSkipping task {int(task_id)}\033[0m")
         continue
 
     cmd = [
-        "python", script,
-        "--logdir", logdir,
-        "--gpu", str(gpu),
-        "--ckpt_name", ckpt_name,
-        "--batch_size", str(batch_size),
-        "--gt_path", gt_path,
-        step_flag, str(step_value),
-        "--save_path", save_path
+        "python",
+        script,
+        "--logdir",
+        logdir,
+        "--gpu",
+        str(gpu),
+        "--ckpt_name",
+        ckpt_name,
+        "--batch_size",
+        str(batch_size),
+        "--gt_path",
+        gt_path,
+        step_flag,
+        str(step_value),
+        "--save_path",
+        save_path,
     ]
 
     if "ddim" in script:
@@ -89,7 +100,7 @@ while tasks:
         failed_tasks.append(msg)
     finished_tasks.append(task_id)
     pbar.update(1)
-    print_summary()
+    print_summary(finished_tasks)
 
 pbar.close()
 
