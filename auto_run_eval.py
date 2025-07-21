@@ -87,6 +87,7 @@ while tasks:
 
     if "ddim" in script:
         cmd += ["--ddim_eta", str(eta)]
+        cmd += ["--use_ddim"]
 
     if dataset:
         cmd += ["--dataset", dataset]
@@ -98,7 +99,8 @@ while tasks:
     except Exception as e:
         msg = f"[{task_id}] {mode} failed: {logdir}"
         failed_tasks.append(msg)
-    finished_tasks.append(task_id)
+    finished_tasks.append(int(task_id))
+    finished_tasks.sort()
     pbar.update(1)
     print_summary(finished_tasks)
 
