@@ -130,6 +130,12 @@ def evaluate(logdir, ckpt_name, args):
     print("Total eval results of this experiment writing to \n", df_path)
     assert os.path.exists(df_dir), f"The df dir {df_dir} should be made!"
 
+    # 保存每个样本的指标到 npz 文件
+    metric_save_path = os.path.join(
+        logdir,
+        f"metrics_{ckpt_name.replace('.ckpt', '')}_ddim_steps{args.ddim_steps if args.ddim_steps else 'default'}.npz",
+    )
+
     with torch.no_grad():
         with tqdm(total=len(dataloader), desc="Processing batches", leave=True) as pbar:
             for batch in dataloader:
@@ -364,11 +370,6 @@ def evaluate(logdir, ckpt_name, args):
     epi = np.mean(epi_list)
 
     # 保存结果
-    # 保存每个样本的指标到 npz 文件
-    metric_save_path = os.path.join(
-        logdir,
-        f"metrics_{ckpt_name.replace('.ckpt', '')}_ddim_steps{args.ddpm_steps if args.ddpm_steps else 'default'}.npz",
-    )
 
     np.savez(
         metric_save_path,
@@ -574,4 +575,3 @@ if __name__ == "__main__":
     print(f"FID: {res_dict['fid']:.4f}")
     print(f"ENL: {res_dict['enl']:.4f}")
     print(f"EPI: {res_dict['epi']:.4f}")
-
