@@ -505,8 +505,8 @@ if __name__ == "__main__":
         "gt_path": gt_path,
         "mode": mode,
         "dataset": dataset,
-        "ddpm_steps": args.ddpm_steps if args.ddpm_steps else 1000,  # 默认是1000步DDPM
-        "ddim_steps": None,
+        "ddpm_steps": None,
+        "ddim_steps": args.ddim_steps if args.ddim_steps else 1000,  # 默认是1000步DDIM
         "eta": None,
     }
     result.update(res_dict)
@@ -564,7 +564,7 @@ if __name__ == "__main__":
 
     # === 打印结果 ===
     print("\n==== 评估指标 ====")
-    print(f"DDPM步数: {args.ddpm_steps}")
+    print(f"DDIM步数: {args.ddim_steps}")
     print(
         f"PSNR: {res_dict['psnr']:.4f} (min={res_dict['psnr_min']:.4f}, max={res_dict['psnr_max']:.4f}, CI=[{res_dict['psnr_ci_lower']:.4f}, {res_dict['psnr_ci_upper']:.4f}])"
     )
