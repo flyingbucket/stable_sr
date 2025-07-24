@@ -147,7 +147,7 @@ def bootstrap_ci(data, confidence=0.95, n_bootstrap=10000):
     return np.mean(data), lower, upper
 
 
-def evaluate(logdir, ckpt_name, args):
+def evaluate(logdir, ckpt_name, args,mode):
     if args.gpu == -1 or not torch.cuda.is_available():
         device = torch.device("cpu")
     else:
@@ -234,10 +234,11 @@ def evaluate(logdir, ckpt_name, args):
     )
     dataset_name = str(dataset).rsplit(".", 1)[-1]
     ckpt_name_in_df_path = os.path.splitext(ckpt_name)[0]
-    df_dir = os.path.join("eval_unet", exp_name, ckpt_name_in_df_path)
+    df_dir = os.path.join(args.detail_dir, exp_name, ckpt_name_in_df_path)
     os.makedirs(df_dir, exist_ok=True)
     df_name = f"{mode}_{args.ddpm_steps}_{dataset_name}.csv"
     df_path = os.path.join(df_dir, df_name)
+    assert not os.path.exists(df_path),f"{df_path} shoule be empty"
     print("Total eval results of this experiment writing to \n", df_path)
     assert os.path.exists(df_dir), f"The df dir {df_dir} should be made!"
 
@@ -337,6 +338,7 @@ def evaluate(logdir, ckpt_name, args):
                     img_name = os.path.basename(img_path)
                     metrics_of_this_img = {
                         "img": img_name,
+                        "mode":mode,
                         "psnr": psnr,
                         "ssim": ssim,
                         "lpips": lp.item(),
@@ -456,6 +458,11 @@ if __name__ == "__main__":
         default="eval_results.csv",
         help="指定评估指标数据表的写入路径",
     )
+    parser.add_argument(
+        "--detail_dir",
+        type=str,
+        default="eval_unet_new"
+    )
     args = parser.parse_args()
 
     # prepare eval INFO
@@ -482,11 +489,12 @@ if __name__ == "__main__":
     print(f"测试集: {args.gt_path}")
     print(f"GPU: {args.gpu}")
     print(f"DDPM步数: {args.ddpm_steps}")
+    print(f"detail dir:{args.detail_dir}")
     print(f"数据表写入位置: {args.save_path}")
     print("===================\n")
     print("Loading Model ...")
 
-    res_dict = evaluate(args.logdir, args.ckpt_name, args)
+    res_dict = evaluate(args.logdir, args.ckpt_name, args,mode)
 
     # write to database
     result = {

@@ -55,7 +55,7 @@ def bootstrap_ci(data, confidence=0.95, n_bootstrap=10000):
     return np.mean(data), lower, upper
 
 
-def evaluate(logdir, ckpt_name, args):
+def evaluate(logdir, ckpt_name, args,mode):
     if args.gpu == -1 or not torch.cuda.is_available():
         device = torch.device("cpu")
     else:
@@ -123,10 +123,11 @@ def evaluate(logdir, ckpt_name, args):
     )
     dataset_name = str(dataset).rsplit(".", 1)[-1]
     ckpt_name_in_df_path = os.path.splitext(ckpt_name)[0]
-    df_dir = os.path.join("eval_unet", exp_name, ckpt_name_in_df_path)
+    df_dir = os.path.join(args.detail_dir, exp_name, ckpt_name_in_df_path)
     os.makedirs(df_dir, exist_ok=True)
     df_name = f"{mode}_{args.ddim_steps}_{args.ddim_eta}_{dataset_name}.csv"
     df_path = os.path.join(df_dir, df_name)
+    assert not os.path.exists(df_path),f"{df_path} shoule be empty"
     print("Total eval results of this experiment writing to \n", df_path)
     assert os.path.exists(df_dir), f"The df dir {df_dir} should be made!"
 
@@ -461,6 +462,11 @@ if __name__ == "__main__":
         default="eval_results.csv",
         help="指定评估指标数据表的写入路径",
     )
+    parser.add_argument(
+        "--detail_dir",
+        type=str,
+        default="eval_unet_new"
+    )
     args = parser.parse_args()
 
     # prepare eval INFO
@@ -472,7 +478,8 @@ if __name__ == "__main__":
     else:
         raise ValueError(f"无法从日志目录名 '{args.logdir}' 中提取实验名称")
 
-    mode = "DDIM" if args.use_ddim else "DDPM"
+    # mode = "DDIM" if args.use_ddim else "DDPM"
+    mode="DDIM"
     gt_path = os.path.basename(args.gt_path)
     config = load_config(args.logdir)
     dataset = args.dataset if args.dataset else config.data.params.validation.target
@@ -488,6 +495,7 @@ if __name__ == "__main__":
     print(f"测试集: {args.gt_path}")
     print(f"GPU: {args.gpu}")
     print(f"采样器: {mode}")
+    print(f"detail dir:{args.detail_dir}")
     print(f"数据表写入位置: {args.save_path}")
     if args.use_ddim:
         print(f"采样器: DDIM")
@@ -496,7 +504,7 @@ if __name__ == "__main__":
     print("===================\n")
 
     # run eval
-    res_dict = evaluate(args.logdir, args.ckpt_name, args)
+    res_dict = evaluate(args.logdir, args.ckpt_name, args,mode)
 
     # write to database
     result = {

@@ -23,20 +23,20 @@ def print_summary(finished_tasks):
 
 
 # load tasks
-with open("tasks.json", "r") as f:
+with open("tasks_W_KLP_SODG.json", "r") as f:
     config = json.load(f)
 
 tasks = config["tasks"]
 skip = config.get("skip", [])
 primary = config.get("primary", [])
-gpu = 0
+gpu = 1
 ckpt_name = "last.ckpt"
 batch_size = 6
 gt_path = "../DataStore/WHU_512_small"
 ddpm_step = 200
 ddim_step = 200
 eta = 0.5
-save_path = "eval_results_new.csv"
+save_path = "eval_results_new1.csv"
 
 success_tasks = []
 failed_tasks = []
