@@ -236,6 +236,7 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
         )
 
         z, c, z_gt, x_lq_up, x_gt, xrec = outs[:6]  # 不需要 wavelet_cond
+        print(z.shape)
         c["c_crossattn"] = c["c_crossattn"][0]  # from [tensor] to tensor
         x = z_gt  # GT image
         xc = x_lq_up  # conditioning image
@@ -263,11 +264,22 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
             diffusion_grid = make_grid(diffusion_grid, nrow=diffusion_row.shape[0])
             log["diffusion_row"] = diffusion_grid
 
+        def safe_clone(item):
+            if isinstance(item, torch.Tensor):
+                return item.clone().detach()
+            elif isinstance(item, list):
+                return [safe_clone(i) for i in item]
+            elif isinstance(item, dict):
+                return {k: safe_clone(v) for k, v in item.items()}
+            else:
+                return item
+
         if sample:
             # get denoise row
             with self.ema_scope("Plotting"):
+                c_copy=safe_clone(c)
                 samples, z_denoise_row = self.sample_log(
-                    cond=copy.deepcopy(c),
+                    cond=c_copy,
                     batch_size=N,
                     ddim=use_ddim,
                     ddim_steps=ddim_steps,
@@ -284,11 +296,11 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
                 self.first_stage_model,
                 (AutoencoderKL, AutoencoderKLPlus, IdentityFirstStage),
             ):
-                # 你不会走到这里
                 # also display when quantizing x0 while sampling
                 with self.ema_scope("Plotting Quantized Denoised"):
+                    c_copy=safe_clone(c)
                     samples, z_denoise_row = self.sample_log(
-                        cond=copy.deepcopy(c),
+                        cond=c_copy,
                         batch_size=N,
                         ddim=use_ddim,
                         ddim_steps=ddim_steps,
@@ -308,8 +320,9 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
                 mask[:, h // 4 : 3 * h // 4, w // 4 : 3 * w // 4] = 0.0
                 mask = mask[:, None, ...]
                 with self.ema_scope("Plotting Inpaint"):
+                    c_copy=safe_clone(c)
                     samples, _ = self.sample_log(
-                        cond=copy.deepcopy(c),
+                        cond=c_copy,
                         batch_size=N,
                         ddim=use_ddim,
                         eta=ddim_eta,
@@ -323,8 +336,9 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
 
                 # outpaint
                 with self.ema_scope("Plotting Outpaint"):
+                    c_copy=safe_clone(c)
                     samples, _ = self.sample_log(
-                        cond=copy.deepcopy(c),
+                        cond=c_copy,
                         batch_size=N,
                         ddim=use_ddim,
                         eta=ddim_eta,
@@ -396,22 +410,6 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
         )  # 明确传入
 
     def sample_log(self, cond, batch_size, ddim=False, ddim_steps=10, **kwargs):
-        # if ddim:
-        #     raise NotImplementedError("DDIM sampling is not implemented in this version of the code.")
-        #     ddim_sampler = DDIMSampler(self)
-        #     shape = (self.channels, self.image_size, self.image_size)
-        #     samples, intermediates =ddim_sampler.sample(ddim_steps,batch_size,
-        #                                                 shape,cond,verbose=False,**kwargs)
-
-        # else:
-        #     samples, intermediates = self.sample(cond=cond, batch_size=batch_size,
-        #                                          return_intermediates=True,**kwargs)
-        # print("[WARNING] We should not have to concat c_concat to itself to satisfy the input channels of the model.")
-        # if self.model.conditioning_key=='concat':
-        #     c_concat = cond['c_concat'][0]
-        #     cond['c_concat'] = [torch.cat([c_concat, c_concat], dim=1)]
-        # else:
-        #     raise NotImplementedError(f"Conditioning key '{self.conditioning_key}' not supported for sampling.")
         samples, intermediates = self.sample(
             cond=cond, batch_size=batch_size, return_intermediates=True, **kwargs
         )
