@@ -1,0 +1,39 @@
+
+{
+    "tasks": {
+        "13": {
+            "logdir": "logs/2025-07-18T15-40-30_W_KLP_SODG",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null
+        },
+        "14": {
+            "logdir": "logs/2025-07-18T15-40-30_W_KLP_SODG",
+            "mode": "DDPM degrade",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": "basicsr.data.wavelet_dataset.WaveletSRDataset"
+        },
+        "15": {
+            "logdir": "logs/2025-07-18T15-40-30_W_KLP_SODG",
+            "mode": "DDIM original",
+            "script": "eval_ddim.py",
+            "step_flag": "--ddim_step",
+            "step_value": 200,
+            "dataset": null
+        },
+        "16": {
+            "logdir": "logs/2025-07-18T15-40-30_W_KLP_SODG",
+            "mode": "DDIM degrade",
+            "script": "eval_ddim.py",
+            "step_flag": "--ddim_step",
+            "step_value": 200,
+            "dataset": "basicsr.data.wavelet_dataset.WaveletSRDataset"
+        }
+    },
+    "skip": [],
+    "primary":[13,15,14,16]
+}
