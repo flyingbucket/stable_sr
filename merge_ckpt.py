@@ -47,5 +47,5 @@ full_sd.update(decoder_weights)
 
 # 保存
 os.makedirs(os.path.dirname(save_path), exist_ok=True)
-torch.save(full_model, save_path)
+torch.save({"state_dict": full_sd}, save_path)  # ✅ 关键修复
 print(f"Saved to {save_path}")
