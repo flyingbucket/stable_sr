@@ -308,11 +308,24 @@ class DDPM(pl.LightningModule):
         if "state_dict" in list(sd.keys()):
             sd = sd["state_dict"]
         keys = list(sd.keys())
-        for k in keys:
+        # for k in keys:
+        #     for ik in ignore_keys:
+        #         if k.startswith(ik):
+        #             print("Deleting key {} from state_dict.".format(k))
+        #             del sd[k]
+        keys_to_delete = set()
+        for k in sd.keys():
             for ik in ignore_keys:
                 if k.startswith(ik):
-                    print("Deleting key {} from state_dict.".format(k))
-                    del sd[k]
+                    keys_to_delete.add(k)
+                    break  # 避免多次匹配到同一个 k
+
+        # 去重并删除
+        for k in set(keys_to_delete):
+            if k in sd.keys():
+                print("Deleting key {} from state_dict.".format(k))
+                del sd[k]
+
         missing, unexpected = self.load_state_dict(sd, strict=False) if not only_model else self.model.load_state_dict(
             sd, strict=False)
         print('<<<<<<<<<<<<>>>>>>>>>>>>>>>')
