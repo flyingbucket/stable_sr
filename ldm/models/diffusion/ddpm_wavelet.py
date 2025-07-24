@@ -236,7 +236,6 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
         )
 
         z, c, z_gt, x_lq_up, x_gt, xrec = outs[:6]  # 不需要 wavelet_cond
-        print(z.shape)
         c["c_crossattn"] = c["c_crossattn"][0]  # from [tensor] to tensor
         x = z_gt  # GT image
         xc = x_lq_up  # conditioning image
