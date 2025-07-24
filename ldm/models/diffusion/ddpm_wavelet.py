@@ -123,6 +123,9 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
             self.cond_stage_model = model
 
     def init_from_ckpt(self, path, ignore_keys=list(), only_model=False):
+        if not path:
+            print("[INFO] No ckpt path provided, skipping weight loading.")
+            return
         import re
         # import traceback
         # print(">>> [DDPM] init_from_ckpt() called <<<")

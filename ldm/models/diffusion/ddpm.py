@@ -190,6 +190,8 @@ class DDPM(pl.LightningModule):
                  logvar_init=0.,
                  ):
         super().__init__()
+        print(f"[DEBUG] ddpm init ckpt_path: {ckpt_path}")
+
         assert parameterization in ["eps", "x0", "v"], 'currently only supporting "eps" and "x0" and "v"'
         self.parameterization = parameterization
         print(f"{self.__class__.__name__}: Running in {self.parameterization}-prediction mode")
