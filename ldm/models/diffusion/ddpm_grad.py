@@ -1,34 +1,18 @@
-from ldm.models.diffusion.ddpm import LatentDiffusion, space_timesteps
+from ldm.models.diffusion.ddpm import LatentDiffusion
 import torch
-import random
-import copy
-import torch.nn.functional as F
 from ldm.util import default, instantiate_from_config
 from einops import repeat, rearrange
 from torchvision.utils import make_grid
-import torch.nn as nn
 import numpy as np
-import pytorch_lightning as pl
 from tqdm import tqdm
-from pytorch_lightning.utilities.distributed import rank_zero_only
-from ldm.modules.diffusionmodules.util import (
-    make_beta_schedule,
-    extract_into_tensor,
-    noise_like,
-)
+from ldm.modules.diffusionmodules.util import noise_like
 from ldm.models.autoencoder import IdentityFirstStage, AutoencoderKL
 from ldm.models.autoencoder_plus import AutoencoderKLPlus
 
 
-def disabled_train(self, mode=True):
-    """Overwrite model.train with this function to make sure train/eval mode
-    does not change anymore."""
-    return self
-
-
-class LatentDiffusionWaveletCS(LatentDiffusion):
+class LatentDiffusionGrad(LatentDiffusion):
     """
-    Latent Diffusion model using wavelet maps as cross-attention condition.
+    Latent Diffusion model using grad maps as cross-attention condition.
     The input is a bicubic-downsampled single-channel image, and the GT latent is computed from the original.
     """
 
@@ -179,14 +163,14 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
         # 图像数据加载
         x_lq_up = batch["lq_image"].to(self.device).float()
         x_gt = batch["gt_image"].to(self.device).float()
-        wavelet_cond = batch["wavelet"].to(self.device).float()
+        grad_cond = batch["grad"].to(self.device).float()
 
         # 编码图像为 latent
         z = self.get_first_stage_encoding(self.encode_first_stage(x_lq_up)).detach()
         z_gt = self.get_first_stage_encoding(self.encode_first_stage(x_gt)).detach()
 
-        # 结构条件（来自 wavelet 子带）
-        struct_cond = self.get_learned_conditioning(wavelet_cond)  # [B, C, 64, 64]
+        # 结构条件（来自 grad 子带）
+        struct_cond = self.get_learned_conditioning(grad_cond)  # [B, C, 64, 64]
 
         lq_cond = self.get_first_stage_encoding(
             self.encode_first_stage(x_lq_up)
@@ -206,7 +190,7 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
             xrec = self.decode_first_stage(z_gt)
             out.extend([x_lq_up, x_gt, xrec])
         if return_original_cond:
-            out.append(wavelet_cond)
+            out.append(grad_cond)
         return out
 
     def log_images(
@@ -238,7 +222,7 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
             bs=N,
         )
 
-        z, c, z_gt, x_lq_up, x_gt, xrec = outs[:6]  # 不需要 wavelet_cond
+        z, c, z_gt, x_lq_up, x_gt, xrec = outs[:6]  # 不需要 grad_cond
         c["c_crossattn"] = c["c_crossattn"][0]  # from [tensor] to tensor
         x = z_gt  # GT image
         xc = x_lq_up  # conditioning image
