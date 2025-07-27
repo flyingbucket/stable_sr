@@ -1,0 +1,30 @@
+{
+    "tasks": {
+        "1": {
+            "logdir": "logs/2025-07-24T18-46-23_W_KL_z16emb16_SO",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null
+        },
+        "2": {
+            "logdir": "logs/2025-07-26T11-34-23_G_KLz16emb16_SO",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null
+        },
+        "3": {
+            "logdir": "logs/2025-07-26T17-18-36_W_KLz16emb16_CSU",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null
+        }
+    },
+    "skip": [],
+    "primary":[1,2,3]
+}
