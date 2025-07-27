@@ -23,7 +23,7 @@ def print_summary(finished_tasks):
 
 
 # load tasks
-with open("tasks_W_KLP_SODG.json", "r") as f:
+with open("tasks.json", "r") as f:
     config = json.load(f)
 
 tasks = config["tasks"]
@@ -36,7 +36,7 @@ gt_path = "../DataStore/WHU_512_small"
 ddpm_step = 200
 ddim_step = 200
 eta = 0.5
-save_path = "eval_results_new1.csv"
+save_path = "eval_results_new.csv"
 
 success_tasks = []
 failed_tasks = []
@@ -83,6 +83,8 @@ while tasks:
         str(step_value),
         "--save_path",
         save_path,
+        "--detail_dir",
+        "eval_unet_new"
     ]
 
     if "ddim" in script:
