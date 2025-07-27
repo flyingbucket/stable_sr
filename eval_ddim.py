@@ -459,13 +459,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--save_path",
         type=str,
-        default="eval_results.csv",
         help="指定评估指标数据表的写入路径",
     )
     parser.add_argument(
         "--detail_dir",
         type=str,
-        default="eval_unet_new"
     )
     args = parser.parse_args()
 
