@@ -206,8 +206,10 @@ def evaluate(logdir, ckpt_name, args,mode):
         lpips_fn = lpips.LPIPS(net="alex").to(device)
 
     # === FID 目录准备 ===
-    fid_real = os.path.join(logdir, "fid_real")
-    fid_fake = os.path.join(logdir, "fid_fake")
+    detail_dir=args.detail_dir
+    save_images=args.save_images
+    fid_real = os.path.join(detail_dir, "fid_real")
+    fid_fake = os.path.join(detail_dir, "fid_fake")
     os.makedirs(fid_real, exist_ok=True)
     os.makedirs(fid_fake, exist_ok=True)
 
@@ -416,9 +418,9 @@ def evaluate(logdir, ckpt_name, args,mode):
         "enl": enl,
         "epi": epi,
     }
-
-    shutil.rmtree(fid_real)
-    shutil.rmtree(fid_fake)
+    if not save_images:
+        shutil.rmtree(fid_real)
+        shutil.rmtree(fid_fake)
     return res_dict
 
 
@@ -460,6 +462,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--detail_dir",
         type=str,
+    )
+    parser.add_argument(
+        "--save_images",
+        type=bool,
+        help="Whether to save inference result images"
     )
     args = parser.parse_args()
 
