@@ -46,7 +46,7 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
         scale_factor=1.0,
         scale_by_std=False,
         only_model=False,
-        unfrozen_first_stage=True,
+        unfrozen_first_stage=False,
         unfrozen_unet=False,
         unfrozen_cond_stage=True,
         *args,
@@ -76,6 +76,17 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
         only_model = kwargs.pop("only_model", False)
         if ckpt_path is not None:
             self.init_from_ckpt(ckpt_path, ignore_keys, only_model=only_model)
+
+        if not self.unfrozen_unet:
+            # self.model.eval()
+            # self.model.train = disabled_train
+            for name, param in self.model.named_parameters():
+                if 'spade' not in name:
+                    param.requires_grad = False
+                elif 'diffusion_model' in name:
+                    param.requires_grad = True  
+                else:
+                    param.requires_grad = True
 
         print(">>>>>>>>>>>>>>>> model >>>>>>>>>>>>>>>>>>")
         for name, param in self.model.named_parameters():
