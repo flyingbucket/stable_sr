@@ -201,30 +201,7 @@ def evaluate(logdir, ckpt_name, args,mode):
     data.setup()
     dataloader = data.val_dataloader()
 
-    # === LPIPS ===
-    with suppress_stdout_stderr():
-        lpips_fn = lpips.LPIPS(net="alex").to(device)
-
-    # === FID 目录准备 ===
-    detail_dir=args.detail_dir
-    save_images=args.save_images
-    fid_real = os.path.join(detail_dir, "fid_real")
-    fid_fake = os.path.join(detail_dir, "fid_fake")
-    os.makedirs(fid_real, exist_ok=True)
-    os.makedirs(fid_fake, exist_ok=True)
-
-    psnr_list, ssim_list, lpips_list, enl_list, epi_list = [], [], [], [], []
-    img_count = 0
-
-    def min_max_normalize(img):
-        img_min = np.min(img)
-        img_max = np.max(img)
-        if img_max - img_min < 1e-8:
-            return np.zeros_like(img, dtype=np.uint8)
-        norm_img = (img - img_min) / (img_max - img_min) * 255.0
-        return norm_img.astype(np.uint8) / 255.0
-
-    # prepare saving df
+    # === prepare saving df ===
     basename = os.path.basename(logdir)
     match = re.match(r"\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}_(.*)", basename)
     if match:
@@ -243,6 +220,29 @@ def evaluate(logdir, ckpt_name, args,mode):
     assert not os.path.exists(df_path),f"{df_path} shoule be empty"
     print("Total eval results of this experiment writing to \n", df_path)
     assert os.path.exists(df_dir), f"The df dir {df_dir} should be made!"
+
+    # === LPIPS ===
+    with suppress_stdout_stderr():
+        lpips_fn = lpips.LPIPS(net="alex").to(device)
+
+    # === FID 目录准备 ===
+    save_images=args.save_images
+    fid_real = os.path.join(df_dir, "fid_real")
+    fid_fake = os.path.join(df_dir, "fid_fake")
+    os.makedirs(fid_real, exist_ok=True)
+    os.makedirs(fid_fake, exist_ok=True)
+
+    psnr_list, ssim_list, lpips_list, enl_list, epi_list = [], [], [], [], []
+    img_count = 0
+
+    def min_max_normalize(img):
+        img_min = np.min(img)
+        img_max = np.max(img)
+        if img_max - img_min < 1e-8:
+            return np.zeros_like(img, dtype=np.uint8)
+        norm_img = (img - img_min) / (img_max - img_min) * 255.0
+        return norm_img.astype(np.uint8) / 255.0
+
 
     with torch.no_grad():
         with tqdm(total=len(dataloader), desc="Processing batches", leave=True) as pbar:
@@ -465,9 +465,10 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--save_images",
-        type=bool,
+        action="store_true",
         help="Whether to save inference result images"
     )
+    
     args = parser.parse_args()
 
     # prepare eval INFO

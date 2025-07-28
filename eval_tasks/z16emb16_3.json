@@ -15,14 +15,6 @@
             "step_flag": "--ddpm_step",
             "step_value": 200,
             "dataset": null
-        },
-        "3": {
-            "logdir": "logs/2025-07-26T17-18-36_W_KLz16emb16_CSU",
-            "mode": "DDPM original",
-            "script": "eval_ddpm.py",
-            "step_flag": "--ddpm_step",
-            "step_value": 200,
-            "dataset": null
         }
     },
     "skip": [],

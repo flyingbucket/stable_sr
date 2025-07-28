@@ -48,13 +48,12 @@ if __name__ == "__main__":
         help="Path to the dir that saves detail results of this run of tasks",
     )
     parser.add_argument(
-        "--ddpm_step", type=int, help="DDPM steps when valing each image", default=200
-    )
-    parser.add_argument(
-        "--ddim_step", type=int, help="DDIM steps when valing each image", default=200
-    )
-    parser.add_argument(
         "--eta", type=float, help="ETA to use when in DDIM mode", default=0.5
+    )
+    parser.add_argument(
+        "--save_images",
+        action="store_true",
+        help="Whether t save inferene images"
     )
 
     args = parser.parse_args()
@@ -72,12 +71,11 @@ if __name__ == "__main__":
     ckpt_name = args.ckpt_name
     batch_size = args.batch_size
     gt_path = args.gt_path
-    ddpm_step = args.ddpm_step
-    ddim_step = args.ddim_step
     eta = args.eta
     save_path = args.save_path
     detail_dir = args.detail_dir
-
+    save_images = args.save_images
+    print(f"save_images: {save_images}")
     success_tasks = []
     failed_tasks = []
 
@@ -125,6 +123,9 @@ if __name__ == "__main__":
             "--detail_dir",
             detail_dir,
         ]
+        
+        if save_images:
+            cmd+=["--save_images"]
 
         if "ddim" in script:
             cmd += ["--ddim_eta", str(eta)]
