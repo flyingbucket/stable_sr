@@ -96,6 +96,7 @@ if __name__ == "__main__":
         step_flag = task["step_flag"]
         step_value = task["step_value"]
         dataset = task["dataset"]
+        ckpt_name = task.get("ckpt_name",ckpt_name)
 
         # === 跳过逻辑（例）===
         if int(task_id) in skip:
