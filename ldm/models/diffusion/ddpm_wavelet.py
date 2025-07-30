@@ -46,7 +46,7 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
         scale_factor=1.0,
         scale_by_std=False,
         only_model=False,
-        unfrozen_first_stage=False,
+        unfrozen_first_stage=True,
         unfrozen_unet=False,
         unfrozen_cond_stage=True,
         *args,
@@ -76,17 +76,6 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
         only_model = kwargs.pop("only_model", False)
         if ckpt_path is not None:
             self.init_from_ckpt(ckpt_path, ignore_keys, only_model=only_model)
-
-        if not self.unfrozen_unet:
-            # self.model.eval()
-            # self.model.train = disabled_train
-            for name, param in self.model.named_parameters():
-                if 'spade' not in name:
-                    param.requires_grad = False
-                elif 'diffusion_model' in name:
-                    param.requires_grad = True  
-                else:
-                    param.requires_grad = True
 
         print(">>>>>>>>>>>>>>>> model >>>>>>>>>>>>>>>>>>")
         for name, param in self.model.named_parameters():
@@ -132,34 +121,6 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
         else:
             model = instantiate_from_config(config)
             self.cond_stage_model = model
-
-    def configure_optimizers(self):
-        lr = self.learning_rate
-        # 只优化未冻结的参数
-        params = filter(lambda p: p.requires_grad, self.model.parameters())
-        if self.cond_stage_trainable:
-            print(f"{self.__class__.__name__}: Also optimizing conditioner params!")
-            cond_params = filter(lambda p: p.requires_grad, self.cond_stage_model.parameters())
-            params = list(params) + list(cond_params)
-        if self.learn_logvar:
-            print('Diffusion model optimizing logvar')
-            params = list(params) + [self.logvar]
-
-        opt = torch.optim.AdamW(params, lr=lr)
-        print("Total parameters in optimizer:", sum(p.numel() for p in opt.param_groups[0]['params']))
-
-        if self.use_scheduler:
-            assert 'target' in self.scheduler_config
-            scheduler = instantiate_from_config(self.scheduler_config)
-            print("Setting up LambdaLR scheduler...")
-            scheduler = [
-                {
-                    'scheduler': LambdaLR(opt, lr_lambda=scheduler.schedule),
-                    'interval': 'step',
-                    'frequency': 1
-                }]
-            return [opt], scheduler
-        return opt
 
     def init_from_ckpt(self, path, ignore_keys=list(), only_model=False):
         if not path:
