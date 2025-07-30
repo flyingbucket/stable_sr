@@ -43,9 +43,16 @@ class WaveletSRDataset(Dataset):
         self.crop_size = crop_size
         self.wavelet = wavelet
 
+    # def _load_image(self, path):
+    #     img = Image.open(path).convert("L")  # 转为单通道灰度图
+    #     tensor = to_tensor(img)  # [1, H, W], range [0,1]
+    #     return tensor
+
     def _load_image(self, path):
-        img = Image.open(path).convert("L")  # 转为单通道灰度图
-        tensor = to_tensor(img)  # [1, H, W], range [0,1]
+        img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)  # shape: (H, W), dtype=uint8
+        img = img.astype('float32') / 255.0  # shape: (H, W), float32
+        tensor = torch.from_numpy(img).unsqueeze(0)  # C=1通道加上去
+
         return tensor
 
     def _crop_center(self, img, size):
