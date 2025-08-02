@@ -212,7 +212,7 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
     def log_images(
         self,
         batch,
-        N=8,
+        N=None,
         n_row=4,
         sample=True,
         ddim_steps=200,
@@ -227,7 +227,7 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
     ):
         # use_ddim = ddim_steps is not None
         use_ddim = False
-
+        N = batch["gt_image"].shape[0]
         log = dict()
         outs = self.get_input(
             batch,
