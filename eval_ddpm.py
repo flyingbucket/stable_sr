@@ -239,9 +239,9 @@ def evaluate(logdir, ckpt_name, args,mode):
         img_min = np.min(img)
         img_max = np.max(img)
         if img_max - img_min < 1e-8:
-            return np.zeros_like(img, dtype=np.uint8)
-        norm_img = (img - img_min) / (img_max - img_min) * 255.0
-        return norm_img.astype(np.uint8) / 255.0
+            return np.zeros_like(img, dtype=np.float32)
+        norm_img = (img - img_min) / (img_max - img_min)
+        return norm_img.astype(np.float32)
 
 
     with torch.no_grad():

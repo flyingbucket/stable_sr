@@ -102,14 +102,14 @@ def evaluate(logdir, ckpt_name, args,mode):
 
     psnr_list, ssim_list, lpips_list, enl_list, epi_list = [], [], [], [], []
     img_count = 0
-
+    
     def min_max_normalize(img):
         img_min = np.min(img)
         img_max = np.max(img)
         if img_max - img_min < 1e-8:
-            return np.zeros_like(img, dtype=np.uint8)
-        norm_img = (img - img_min) / (img_max - img_min) * 255.0
-        return norm_img.astype(np.uint8) / 255.0
+            return np.zeros_like(img, dtype=np.float32)
+        norm_img = (img - img_min) / (img_max - img_min)
+        return norm_img.astype(np.float32)
 
     # prepare saving df
     basename = os.path.basename(logdir)
