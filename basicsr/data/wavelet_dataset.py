@@ -14,7 +14,7 @@ from scipy.ndimage import convolve
 
 
 class WaveletSRDataset(Dataset):
-    def __init__(self, gt_path=None, crop_size=None, wavelet="haar", **kwargs):
+    def __init__(self, opt, **kwargs):
         """
         Args:
             gt_path (str or list): 图像路径根目录
@@ -23,34 +23,31 @@ class WaveletSRDataset(Dataset):
             kwargs: 兼容 config 调用时传入的额外字段
         """
 
-        # 如果是 config 字典，说明传的是整个 params
-        if isinstance(gt_path, (DictConfig, dict)):
-            params = gt_path
-            gt_path = params.get("gt_path", None)
-            crop_size = params.get("crop_size", crop_size)
-            wavelet = params.get("wavelet", wavelet)
+        if isinstance(opt, (DictConfig, dict)):
+            params = opt
+            gt_path = params["gt_path"]
+            crop_size = params["crop_size"]
+            wavelet = params.get("wavelet", "haar")
+            image_type = params.get("image_type", "['png']")
 
         # 兼容 ListConfig（配置中是列表形式）
+        self.image_paths = []
         if isinstance(gt_path, (ListConfig, list)):
-            assert len(gt_path) > 0, "gt_path 不能是空列表"
-            gt_path = gt_path[0]
+            for p in gt_path:
+                for ext in image_type:
+                    self.image_paths.extend(sorted(glob(os.path.join(p, f"*.{ext}"))))
+        elif isinstance(gt_path, str):
+            for ext in image_type:
+                self.image_paths.extend(sorted(glob(os.path.join(gt_path, f"*.{ext}"))))
+        else:
+            raise TypeError("gt_path 应为字符串或路径列表")
 
-        assert isinstance(gt_path, str), (
-            f"gt_path 应为字符串，但实际为: {type(gt_path)}"
-        )
-
-        self.image_paths = sorted(glob(os.path.join(gt_path, "*.png")))
         self.crop_size = crop_size
         self.wavelet = wavelet
 
-    # def _load_image(self, path):
-    #     img = Image.open(path).convert("L")  # 转为单通道灰度图
-    #     tensor = to_tensor(img)  # [1, H, W], range [0,1]
-    #     return tensor
-
     def _load_image(self, path):
         img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)  # shape: (H, W), dtype=uint8
-        img = img.astype('float32') / 255.0  # shape: (H, W), float32
+        img = img.astype("float32") / 255.0  # shape: (H, W), float32
         tensor = torch.from_numpy(img).unsqueeze(0)  # C=1通道加上去
 
         return tensor
@@ -80,34 +77,54 @@ class WaveletSRDataset(Dataset):
 
         return dwt_tensor
 
-    def __getitem__(self, index):
-        path = self.image_paths[index]
-        img_gt = self._load_image(path)  # [1, H, W]
+def __getitem__(self, index):
+        tries = 0
+        while tries < 100:
+            path = self.image_paths[index]
+            try:
+                img_gt = self._load_image(path)  # [1, H, W]
+                _, h, w = img_gt.shape
 
-        if self.crop_size:
-            img_gt = self._crop_center(img_gt, self.crop_size)
+                # 判断尺寸是否满足要求
+                if h < self.crop_size or w < self.crop_size:
+                    # 跳过尺寸过小的图片
+                    tries += 1
+                    index = (index + 1) % len(self.image_paths)
+                    continue
 
-        # => [1, H, W] → [1, 1, H, W]
-        img_gt_batched = img_gt.unsqueeze(0)
-        # 下采样 + 上采样（bicubic）
-        lq = F.interpolate(
-            img_gt_batched, scale_factor=0.25, mode="bicubic", align_corners=False
-        )
-        lq_up = F.interpolate(
-            lq, size=img_gt.shape[-2:], mode="bicubic", align_corners=False
-        )
-        # 去掉 batch 维度 → [1, H, W]
-        lq_up = lq_up.squeeze(0)
+                # 裁剪中心区域
+                if self.crop_size:
+                    img_gt = self._crop_center(img_gt, self.crop_size)
 
-        # 小波变换在 lq 图上（上采样前/后均可）
-        wavelet = self._dwt_tensor(lq_up)  # shape: [4, H/2, W/2]
+                # 下采样 + 上采样 (bicubic)
+                img_gt_batched = img_gt.unsqueeze(0)
+                lq = F.interpolate(
+                    img_gt_batched,
+                    scale_factor=0.25,
+                    mode="bicubic",
+                    align_corners=False,
+                )
+                lq_up = F.interpolate(
+                    lq, size=img_gt.shape[-2:], mode="bicubic", align_corners=False
+                )
+                lq_up = lq_up.squeeze(0)
 
-        return {
-            "gt_image": img_gt,  # [1, H, W]
-            "lq_image": lq_up,  # [1, H, W]
-            "wavelet": wavelet,  # [4, H/2, W/2]
-            "gt_path": path,
-        }
+                # 小波变换
+                wavelet = self._dwt_tensor(lq_up)
+
+                return {
+                    "gt_image": img_gt,
+                    "lq_image": lq_up,
+                    "wavelet": wavelet,
+                    "gt_path": path,
+                }
+
+            except Exception as e:
+                # 读取异常或处理异常，跳过当前图片
+                tries += 1
+                index = (index + 1) % len(self.image_paths)
+
+        raise RuntimeError(f"Too many bad images starting from index {index}")
 
     def __len__(self):
         return len(self.image_paths)
@@ -422,4 +439,3 @@ class OriginalDataset(Dataset):
 
     def __len__(self):
         return len(self.image_paths)
-
