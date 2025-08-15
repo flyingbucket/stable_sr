@@ -1,0 +1,56 @@
+{
+    "tasks": {
+        "1": {
+            "logdir": "logs/2025-08-05T14-20-09_W_KL_SO_256",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null,
+            "detail_dir":"eval_kl_256/ds1",
+            "gt_path": "/home/flyingbucket/DataStore/DDHRNet_DATA/korea/cloud/GF3_test"
+        },
+        "2": {
+            "logdir": "logs/2025-08-05T14-20-09_W_KL_SO_256",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null,
+            "detail_dir":"eval_kl_256/ds2",
+            "gt_path": "/home/flyingbucket/DataStore/DDHRNet_DATA/shandong/GF3_test"
+        },
+        "3": {
+            "logdir": "logs/2025-08-05T14-20-09_W_KL_SO_256",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null,
+            "detail_dir":"eval_kl_256/ds3",
+            "gt_path": "/home/flyingbucket/DataStore/NKU_coco/train_256_test"
+        },
+        "4": {
+            "logdir": "logs/2025-08-05T14-20-09_W_KL_SO_256",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null,
+            "detail_dir":"eval_kl_256/ds4",
+            "gt_path": "/home/flyingbucket/DataStore/iceye/train_256_test"
+        },
+        "5": {
+            "logdir": "logs/2025-08-05T14-20-09_W_KL_SO_256",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null,
+            "detail_dir":"eval_kl_256/ds5",
+            "gt_path": "/home/flyingbucket/DataStore/HR-SARBuD/images_256_test"
+        }
+    },
+    "skip":[],
+    "primary":[]
+}
