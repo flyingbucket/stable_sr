@@ -213,6 +213,7 @@ def evaluate(logdir, ckpt_name, args,mode):
     )
     dataset_name = str(dataset).rsplit(".", 1)[-1]
     ckpt_name_in_df_path = os.path.splitext(ckpt_name)[0]
+    os.makedirs(args.detail_dir, exist_ok=True)
     df_dir = os.path.join(args.detail_dir, exp_name, ckpt_name_in_df_path)
     os.makedirs(df_dir, exist_ok=True)
     df_name = f"{mode}_{args.ddpm_steps}_{dataset_name}.csv"
@@ -481,8 +482,15 @@ if __name__ == "__main__":
         raise ValueError(f"无法从日志目录名 '{args.logdir}' 中提取实验名称")
 
     mode = "DDPM"
-    gt_path = os.path.basename(args.gt_path)
+    
     config = load_config(args.logdir)
+
+    if args.gt_path is not None:
+        gt_path=args.gt_path
+        config.test_data.params.test.params.gt_path = args.gt_path
+        config.data.params.validation.params.gt_path = args.gt_path
+    else:
+        gt_path=config.data.params.validation.params.gt_path
     dataset = args.dataset if args.dataset else config.data.params.validation.target
     dataset = str(dataset).rsplit(".", 1)[-1]
     # print config before eval
