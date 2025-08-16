@@ -136,7 +136,6 @@ venv.bak/
 .mypy_cache/
 
 outputs/
-configs/*
 debug_out/
 *.sh
 .fuse_hidden*

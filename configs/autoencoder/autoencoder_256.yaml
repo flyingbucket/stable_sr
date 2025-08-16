@@ -1,0 +1,93 @@
+model:
+  base_learning_rate: 5.0e-5
+  target: ldm.models.autoencoder.AutoencoderKL
+  params:
+    ckpt_path: ckpt/vae_rgb_pretrained.pth
+    ignore_keys: ["encoder.conv_in","decoder.conv_out"]
+    monitor: "val/rec_loss"
+    embed_dim: 4
+    # fusion_w: 1.0
+    # freeze_dec: True
+    # synthesis_data: False
+    lossconfig:
+      target: ldm.modules.losses.LPIPSWithDiscriminator
+      params:
+        disc_start: 1e5
+        kl_weight: 0
+        disc_weight: 0.025
+        disc_factor: 1.0
+        disc_in_channels: 1
+    ddconfig:
+      double_z: true
+      z_channels: 4
+      resolution: 256
+      in_channels: 1
+      out_ch: 1
+      ch: 128
+      ch_mult:
+      - 1
+      - 2
+      - 4
+      num_res_blocks: 2
+      attn_resolutions: []
+      dropout: 0.0
+
+    image_key: 'gt'
+
+
+data:
+  target: main.DataModuleFromConfig
+  params:
+    batch_size: 5
+    num_workers: 12
+    wrap: True
+    train:
+      target: basicsr.data.autoencoderGT_dataset.AutoencoderImageDataset
+      params:
+        resolution: 256
+        # gt_path: "/home/flyingbucket/DataStore/WHU_512"
+        gt_path: [
+          "/home/flyingbucket/DataStore/DDHRNet_DATA/korea/cloud/GF3",
+          "/home/flyingbucket/DataStore/DDHRNet_DATA/shandong/GF3",
+          "/home/flyingbucket/DataStore/NKU_coco/train",
+          "/home/flyingbucket/DataStore/iceye/train_256",
+          "/home/flyingbucket/DataStore/HR-SARBuD/images_256"
+          ]
+        io_backend:
+          type: disk
+        color: gray
+    validation:
+      target: basicsr.data.autoencoderGT_dataset.AutoencoderImageDataset
+      params:
+        resolution: 256
+        gt_path: [
+          "/home/flyingbucket/DataStore/DDHRNet_DATA/korea/cloud/GF3_test",
+          "/home/flyingbucket/DataStore/DDHRNet_DATA/shandong/GF3_test",
+          "/home/flyingbucket/DataStore/NKU_coco/train_test",
+          "/home/flyingbucket/DataStore/iceye/train_256_test",
+          "/home/flyingbucket/DataStore/HR-SARBuD/images_256_test"
+          ]
+        io_backend:
+          type: disk
+        color: gray
+
+lightning:
+  modelcheckpoint:
+    params:
+      every_n_epochs: 1         # 每个 epoch 保存
+      save_top_k: 100
+  callbacks:
+    image_logger:
+      target: main.ImageLogger
+      params:
+        batch_frequency: 5000
+        max_images: 4
+        increase_log_steps: False
+
+  trainer:
+    gpus: [2, 3]
+    benchmark: True
+    max_epochs: 200            
+    val_check_interval: 0.5     # 每个 epoch 内验证 2 次
+    check_val_every_n_epoch: 1  # 每个 epoch 执行验证
+    accelerator: ddp

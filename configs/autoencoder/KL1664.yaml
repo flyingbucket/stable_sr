@@ -1,0 +1,74 @@
+model:
+  base_learning_rate: 5.0e-5
+  target: ldm.models.autoencoder.AutoencoderKL
+  params:
+    ckpt_path: ckpt/vae_rgb_pretrained.pth
+    ignore_keys: ["encoder.conv_in", "decoder.conv_out"]
+    monitor: "val/rec_loss"
+    embed_dim: 16
+    lossconfig:
+      target: ldm.modules.losses.LPIPSWithDiscriminator
+      params:
+        disc_start: 1e5
+        kl_weight: 0
+        perceptual_weight: 0.1
+        disc_weight: 0.01
+        disc_factor: 1.0
+        disc_in_channels: 1
+    ddconfig:
+      double_z: true
+      z_channels: 16
+      resolution: 512
+      in_channels: 1
+      out_ch: 1
+      ch: 128
+      ch_mult:
+        - 1
+        - 2
+        - 4
+        - 4
+      num_res_blocks: 2
+      attn_resolutions: []
+      dropout: 0.0
+
+    image_key: "gt"
+
+data:
+  target: main.DataModuleFromConfig
+  params:
+    batch_size: 1
+    num_workers: 12
+    wrap: True
+    train:
+      target: basicsr.data.autoencoderGT_dataset.AutoencoderImageDataset
+      params:
+        gt_path: "/home/flyingbucket/DataStore/WHU_512"
+        io_backend:
+          type: disk
+        color: gray
+    validation:
+      target: basicsr.data.autoencoderGT_dataset.AutoencoderImageDataset
+      params:
+        gt_path: "/home/flyingbucket/DataStore/WHU_512_small"
+        io_backend:
+          type: disk
+        color: gray
+
+lightning:
+  modelcheckpoint:
+    params:
+      every_n_train_steps: 1500
+  callbacks:
+    image_logger:
+      target: main.ImageLogger
+      params:
+        batch_frequency: 1500
+        max_images: 4
+        increase_log_steps: False
+
+  trainer:
+    benchmark: True
+    max_steps: 100000
+    accumulate_grad_batches: 4
+    gpus: [2, 3]
+    precision: 16
