@@ -586,4 +586,3 @@ class AutoencoderKLResiPlus(AutoencoderKLResi):
         posterior, enc_fea_lq = self.encode(input)
         dec = self.decode(latent, enc_fea_lq)
         return dec, posterior
-

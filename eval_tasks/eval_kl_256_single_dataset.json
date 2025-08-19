@@ -1,7 +1,7 @@
 {
     "tasks": {
         "1": {
-            "logdir": "logs/2025-08-05T14-20-09_W_KL_SO_256",
+            "logdir": "logs/2025-08-15T22-56-24_W_KLP_SO_256",
             "mode": "DDPM original",
             "script": "eval_ddpm.py",
             "step_flag": "--ddpm_step",
@@ -11,7 +11,7 @@
             "gt_path": "/home/flyingbucket/DataStore/DDHRNet_DATA/korea/cloud/GF3_test"
         },
         "2": {
-            "logdir": "logs/2025-08-05T14-20-09_W_KL_SO_256",
+            "logdir": "logs/2025-08-15T22-56-24_W_KLP_SO_256",
             "mode": "DDPM original",
             "script": "eval_ddpm.py",
             "step_flag": "--ddpm_step",
@@ -31,7 +31,7 @@
             "gt_path": "/home/flyingbucket/DataStore/NKU_coco/train_256_test"
         },
         "4": {
-            "logdir": "logs/2025-08-05T14-20-09_W_KL_SO_256",
+            "logdir": "logs/2025-08-15T22-56-24_W_KLP_SO_256",
             "mode": "DDPM original",
             "script": "eval_ddpm.py",
             "step_flag": "--ddpm_step",
@@ -41,7 +41,7 @@
             "gt_path": "/home/flyingbucket/DataStore/iceye/train_256_test"
         },
         "5": {
-            "logdir": "logs/2025-08-05T14-20-09_W_KL_SO_256",
+            "logdir": "logs/2025-08-15T22-56-24_W_KLP_SO_256",
             "mode": "DDPM original",
             "script": "eval_ddpm.py",
             "step_flag": "--ddpm_step",
