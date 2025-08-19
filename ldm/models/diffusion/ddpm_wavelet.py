@@ -113,7 +113,7 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
             else:
                 model = instantiate_from_config(config)
                 self.cond_stage_model = model
-                if not self.ufrozen_cond_stage:
+                if not self.unfrozen_cond_stage:
                     self.cond_stage_model.eval()
                     self.cond_stage_model.train = disabled_train
                     for p in self.cond_stage_model.parameters():
@@ -411,9 +411,57 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
             struct_cond=struct_cond,
         )  # 明确传入
 
+    @torch.no_grad()
+    def _infer_downsample_factor(self):
+        """
+        在不修改 first_stage_model 的前提下，自动探测 VAE 的下采样因子（输入H/W 除以 latent H/W）。
+        结果缓存在 self._df 里，后续直接复用。
+        """
+        if hasattr(self, "_df"):
+            return self._df
+
+        # 1) 先从 first_stage_model.ddconfig 猜 in_channels / 分辨率（可选）
+        dd = (
+            getattr(self.first_stage_model, "ddconfig", {})
+            if hasattr(self.first_stage_model, "ddconfig")
+            else {}
+        )
+        H = int(getattr(self, "image_size", dd.get("resolution", 256)))
+        W = H
+        C = int(dd.get("in_channels", 1))
+
+        # 2) 构造一个哑输入做一次 encode，测 latent 空间大小
+        dev = self.device
+        x = torch.zeros(1, C, H, W, device=dev)  # 值为0即可，不回传梯度
+        posterior = self.first_stage_model.encode(x)
+        if hasattr(posterior, "sample"):
+            z = posterior.sample()
+        else:
+            # 极少数实现只有 mode()
+            z = posterior.mode()
+
+        h, w = z.shape[-2:]
+        assert H % h == 0 and W % w == 0, (
+            f"Input ({H}x{W}) not divisible by latent ({h}x{w})."
+        )
+        df_h, df_w = H // h, W // w
+        assert df_h == df_w, f"Non-square downsample factor: {df_h} vs {df_w}"
+
+        self._df = int(df_h)
+        return self._df
+
     def sample_log(self, cond, batch_size, ddim=False, ddim_steps=10, **kwargs):
+        df = self._infer_downsample_factor()
+        h = self.image_size // df
+        w = self.image_size // df
+        shape = (batch_size, self.channels, h, w)
+        print(f"[sample_log] df={df}, latent_shape={shape}")
         samples, intermediates = self.sample(
-            cond=cond, batch_size=batch_size, return_intermediates=True, **kwargs
+            cond=cond,
+            batch_size=batch_size,
+            shape=shape,
+            return_intermediates=True,
+            **kwargs,
         )
 
         return samples, intermediates

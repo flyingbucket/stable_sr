@@ -147,7 +147,7 @@ def bootstrap_ci(data, confidence=0.95, n_bootstrap=10000):
     return np.mean(data), lower, upper
 
 
-def evaluate(logdir, ckpt_name, args,mode):
+def evaluate(logdir, ckpt_name, args, mode):
     if args.gpu == -1 or not torch.cuda.is_available():
         device = torch.device("cpu")
     else:
@@ -218,7 +218,7 @@ def evaluate(logdir, ckpt_name, args,mode):
     os.makedirs(df_dir, exist_ok=True)
     df_name = f"{mode}_{args.ddpm_steps}_{dataset_name}.csv"
     df_path = os.path.join(df_dir, df_name)
-    assert not os.path.exists(df_path),f"{df_path} shoule be empty"
+    assert not os.path.exists(df_path), f"{df_path} shoule be empty"
     print("Total eval results of this experiment writing to \n", df_path)
     assert os.path.exists(df_dir), f"The df dir {df_dir} should be made!"
 
@@ -227,7 +227,7 @@ def evaluate(logdir, ckpt_name, args,mode):
         lpips_fn = lpips.LPIPS(net="alex").to(device)
 
     # === FID 目录准备 ===
-    save_images=args.save_images
+    save_images = args.save_images
     fid_real = os.path.join(df_dir, "fid_real")
     fid_fake = os.path.join(df_dir, "fid_fake")
     os.makedirs(fid_real, exist_ok=True)
@@ -243,7 +243,6 @@ def evaluate(logdir, ckpt_name, args,mode):
             return np.zeros_like(img, dtype=np.float32)
         norm_img = (img - img_min) / (img_max - img_min)
         return norm_img.astype(np.float32)
-
 
     with torch.no_grad():
         with tqdm(total=len(dataloader), desc="Processing batches", leave=True) as pbar:
@@ -297,6 +296,7 @@ def evaluate(logdir, ckpt_name, args,mode):
                     img_count += 1
 
                     # === PSNR & SSIM ===
+                    # print(f"gt shape:{gt.shape}\tpred shape: {pred.shape}")
                     psnr = compare_psnr(gt, pred, data_range=1.0)
                     ssim = compare_ssim(gt, pred, data_range=1.0)
                     psnr_list.append(psnr)
@@ -341,7 +341,7 @@ def evaluate(logdir, ckpt_name, args,mode):
                     img_name = os.path.basename(img_path)
                     metrics_of_this_img = {
                         "img": img_name,
-                        "mode":mode,
+                        "mode": mode,
                         "psnr": psnr,
                         "ssim": ssim,
                         "lpips": lp.item(),
@@ -467,9 +467,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--save_images",
         action="store_true",
-        help="Whether to save inference result images"
+        help="Whether to save inference result images",
     )
-    
+
     args = parser.parse_args()
 
     # prepare eval INFO
@@ -482,15 +482,15 @@ if __name__ == "__main__":
         raise ValueError(f"无法从日志目录名 '{args.logdir}' 中提取实验名称")
 
     mode = "DDPM"
-    
+
     config = load_config(args.logdir)
 
     if args.gt_path is not None:
-        gt_path=args.gt_path
+        gt_path = args.gt_path
         config.test_data.params.test.params.gt_path = args.gt_path
         config.data.params.validation.params.gt_path = args.gt_path
     else:
-        gt_path=config.data.params.validation.params.gt_path
+        gt_path = config.data.params.validation.params.gt_path
     dataset = args.dataset if args.dataset else config.data.params.validation.target
     dataset = str(dataset).rsplit(".", 1)[-1]
     # print config before eval
@@ -508,7 +508,7 @@ if __name__ == "__main__":
     print("===================\n")
     print("Loading Model ...")
 
-    res_dict = evaluate(args.logdir, args.ckpt_name, args,mode)
+    res_dict = evaluate(args.logdir, args.ckpt_name, args, mode)
 
     # write to database
     result = {
@@ -587,4 +587,3 @@ if __name__ == "__main__":
     print(f"FID: {res_dict['fid']:.4f}")
     print(f"ENL: {res_dict['enl']:.4f}")
     print(f"EPI: {res_dict['epi']:.4f}")
-
