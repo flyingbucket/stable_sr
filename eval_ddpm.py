@@ -246,7 +246,12 @@ def evaluate(logdir, ckpt_name, args, mode):
 
     with torch.no_grad():
         with tqdm(total=len(dataloader), desc="Processing batches", leave=True) as pbar:
+            current_batch=0
+            max_batch=args.max_batch
             for batch in dataloader:
+                if max_batch is not None and current_batch>=max_batch:
+                    break 
+                current_batch+=1
                 batch = {
                     k: (v.to(device) if torch.is_tensor(v) else v)
                     for k, v in batch.items()
@@ -465,6 +470,12 @@ if __name__ == "__main__":
         type=str,
     )
     parser.add_argument(
+        "--max_batch",
+        type=int,
+        default=None,
+        help="Max number of batches to eval"
+    )
+    parser.add_argument(
         "--save_images",
         action="store_true",
         help="Whether to save inference result images",
@@ -505,6 +516,7 @@ if __name__ == "__main__":
     print(f"DDPM步数: {args.ddpm_steps}")
     print(f"detail dir:{args.detail_dir}")
     print(f"数据表写入位置: {args.save_path}")
+    print(f"Max number of batches: {args.max_batch}")
     print("===================\n")
     print("Loading Model ...")
 

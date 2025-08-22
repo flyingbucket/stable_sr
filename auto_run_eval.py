@@ -51,6 +51,12 @@ if __name__ == "__main__":
         "--eta", type=float, help="ETA to use when in DDIM mode", default=0.5
     )
     parser.add_argument(
+        "--max_batch",
+        type=int,
+        default=None,
+        help="Max number of batches to eval"
+    )
+    parser.add_argument(
         "--save_images",
         action="store_true",
         help="Whether t save inferene images"
@@ -74,6 +80,7 @@ if __name__ == "__main__":
     eta = args.eta
     save_path = args.save_path
     detail_dir = args.detail_dir
+    max_batch = args.max_batch
     save_images = args.save_images
     print(f"save_images: {save_images}")
     success_tasks = []
@@ -99,12 +106,12 @@ if __name__ == "__main__":
         ckpt_name = task.get("ckpt_name",ckpt_name)
         gt_path = task.get("gt_path",gt_path)
         detail_dir = task.get("detail_dir",detail_dir)
+        max_batch = task.get("max_batch",None)
         # === 跳过逻辑（例）===
         if int(task_id) in skip:
             # print(f"Skiping task {int(task_id)}")
             print(f"\033[94mSkipping task {int(task_id)}\033[0m")
             continue
-
         cmd = [
             "python",
             script,
@@ -124,6 +131,8 @@ if __name__ == "__main__":
             save_path,
             "--detail_dir",
             detail_dir,
+            "--max_batch",
+            str(max_batch)
         ]
         
         if save_images:
@@ -135,41 +144,6 @@ if __name__ == "__main__":
 
         if dataset:
             cmd += ["--dataset", dataset]
-        # try:
-        #     # 捕获stdout和stderr
-        #     result = subprocess.run(
-        #         cmd,
-        #         check=True,
-        #         stdout=subprocess.PIPE,  # 捕获标准输出
-        #         stderr=subprocess.PIPE,  # 捕获标准错误
-        #         text=True  # 以文本形式返回（Python 3.7+）
-        #     )
-        #     msg = f"[{task_id}] {mode} success: {logdir}"
-        #     success_tasks.append(msg)
-            
-        # except subprocess.CalledProcessError as e:
-        #     # 子进程返回非零状态码
-        #     error_msg = f"""
-        #     [{task_id}] {mode} failed: {logdir}
-        #     Command: {e.cmd}
-        #     Return code: {e.returncode}
-        #     Output:
-        #     {e.stdout}
-        #     Error:
-        #     {e.stderr}
-        #     """
-        #     failed_tasks.append(error_msg.strip())
-        #     print(error_msg)  # 打印详细错误信息
-            
-        # except Exception as e:
-        #     # 其他异常（如文件未找到等）
-        #     error_msg = f"""
-        #     [{task_id}] {mode} failed with unexpected error: {logdir}
-        #     Error type: {type(e).__name__}
-        #     Error message: {str(e)}
-        #     """
-        #     failed_tasks.append(error_msg.strip())
-        #     print(error_msg)
         try:
             subprocess.run(cmd, check=True)
             msg = f"[{task_id}] {mode} success: {logdir}"
