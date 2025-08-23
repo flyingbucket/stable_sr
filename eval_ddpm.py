@@ -11,15 +11,12 @@ from filelock import FileLock
 from tqdm import tqdm
 from omegaconf import OmegaConf
 from ldm.util import instantiate_from_config
-from torch.utils.data import DataLoader
-from basicsr.data.wavelet_dataset import WaveletSRDataset
 from skimage.metrics import peak_signal_noise_ratio as compare_psnr
 from skimage.metrics import structural_similarity as compare_ssim
 import lpips
 from pytorch_fid import fid_score
 import cv2
 import copy
-from einops import repeat
 
 
 @contextlib.contextmanager
@@ -246,12 +243,12 @@ def evaluate(logdir, ckpt_name, args, mode):
 
     with torch.no_grad():
         with tqdm(total=len(dataloader), desc="Processing batches", leave=True) as pbar:
-            current_batch=0
-            max_batch=args.max_batch
+            current_batch = 0
+            max_batch = args.max_batch
             for batch in dataloader:
-                if max_batch is not None and current_batch>=max_batch:
-                    break 
-                current_batch+=1
+                if max_batch is not None and current_batch >= max_batch:
+                    break
+                current_batch += 1
                 batch = {
                     k: (v.to(device) if torch.is_tensor(v) else v)
                     for k, v in batch.items()
@@ -470,10 +467,7 @@ if __name__ == "__main__":
         type=str,
     )
     parser.add_argument(
-        "--max_batch",
-        type=int,
-        default=None,
-        help="Max number of batches to eval"
+        "--max_batch", type=int, default=None, help="Max number of batches to eval"
     )
     parser.add_argument(
         "--save_images",
