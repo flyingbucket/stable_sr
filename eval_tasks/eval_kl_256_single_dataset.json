@@ -7,7 +7,7 @@
             "step_flag": "--ddpm_step",
             "step_value": 200,
             "dataset": null,
-            "detail_dir":"eval_kl_256/ds1",
+            "detail_dir": "eval_kl_256/DDHR-korea",
             "gt_path": "/home/flyingbucket/DataStore/DDHRNet_DATA/korea/cloud/GF3_test"
         },
         "2": {
@@ -17,7 +17,7 @@
             "step_flag": "--ddpm_step",
             "step_value": 200,
             "dataset": null,
-            "detail_dir":"eval_kl_256/ds2",
+            "detail_dir": "eval_kl_256/DDHR-shandong",
             "gt_path": "/home/flyingbucket/DataStore/DDHRNet_DATA/shandong/GF3_test"
         },
         "3": {
@@ -27,7 +27,7 @@
             "step_flag": "--ddpm_step",
             "step_value": 200,
             "dataset": null,
-            "detail_dir":"eval_kl_256/ds3",
+            "detail_dir": "eval_kl_256/coco",
             "gt_path": "/home/flyingbucket/DataStore/NKU_coco/train_256_test",
             "max_batch": 100
         },
@@ -38,7 +38,7 @@
             "step_flag": "--ddpm_step",
             "step_value": 200,
             "dataset": null,
-            "detail_dir":"eval_kl_256/ds4",
+            "detail_dir": "eval_kl_256/iceye",
             "gt_path": "/home/flyingbucket/DataStore/iceye/train_256_test"
         },
         "5": {
@@ -48,10 +48,27 @@
             "step_flag": "--ddpm_step",
             "step_value": 200,
             "dataset": null,
-            "detail_dir":"eval_kl_256/ds5",
+            "detail_dir": "eval_kl_256/HR-SARBuD",
             "gt_path": "/home/flyingbucket/DataStore/HR-SARBuD/images_256_test"
+        },
+        "6": {
+            "logdir": "logs/2025-08-15T22-56-24_W_KLP_SO_256",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null,
+            "detail_dir": "eval_kl_256/WHU",
+            "gt_path": "/home/flyingbucket/DataStore/WHU/WHU_256_test",
+            "max_batch": 100
         }
     },
-    "skip":[1,2,4,5],
-    "primary":[]
+    "skip": [
+        1,
+        2,
+        3,
+        4,
+        5
+    ],
+    "primary": []
 }

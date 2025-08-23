@@ -1,21 +1,12 @@
-from ldm.models.diffusion.ddpm import LatentDiffusion, space_timesteps
+from ldm.models.diffusion.ddpm import LatentDiffusion
 import torch
-import random
-import copy
-import torch.nn.functional as F
 from ldm.util import default, instantiate_from_config
 from einops import repeat, rearrange
 from torchvision.utils import make_grid
-import torch.nn as nn
 import numpy as np
-import pytorch_lightning as pl
 from tqdm import tqdm
-from pytorch_lightning.utilities.distributed import rank_zero_only
-from ldm.modules.diffusionmodules.util import (
-    make_beta_schedule,
-    extract_into_tensor,
-    noise_like,
-)
+from ldm.modules.diffusionmodules.util import noise_like
+
 from ldm.models.autoencoder import IdentityFirstStage, AutoencoderKL
 from ldm.models.autoencoder_plus import AutoencoderKLPlus
 
@@ -455,7 +446,6 @@ class LatentDiffusionWaveletCS(LatentDiffusion):
         h = self.image_size // df
         w = self.image_size // df
         shape = (batch_size, self.channels, h, w)
-        print(f"[sample_log] df={df}, latent_shape={shape}")
         samples, intermediates = self.sample(
             cond=cond,
             batch_size=batch_size,
