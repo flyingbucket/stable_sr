@@ -9,7 +9,6 @@ from typing import Optional, List, Tuple, Dict
 import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 
-
 def _safe_zscore(series: pd.Series) -> pd.Series:
     """对指标做 z-score 标准化，std 为 0 时退化为 0（不影响综合分）"""
     mu = series.mean()
@@ -106,6 +105,16 @@ def _stack_side_by_side(
     out.paste(right_img, (left_img.width, ry))
     return out
 
+
+def _compute_text_panel_width(text_lines, font=None, padding=20):
+    # font 可传 PIL 的 truetype 字体对象，也可 None 用默认
+    dummy_img = Image.new("RGB", (1,1))
+    draw = ImageDraw.Draw(dummy_img)
+    max_w = 0
+    for line in text_lines:
+        bbox = draw.textbbox((0,0), line, font=font)
+        max_w = max(max_w, bbox[2]-bbox[0])
+    return max_w + padding
 
 def _exp_name_from_logdir(logdir: str) -> str:
     """
@@ -320,8 +329,8 @@ def select_and_save_top_images(
                     lines.append(f"{c.upper()}: {val}")
 
             panel_h = im.height  # 让面板高度与原图一致
-            info_panel = _make_info_panel(size=(panel_width, panel_h), text_lines=lines)
-
+            dynamic_w = _compute_text_panel_width(lines, padding=40)  # padding 调整
+            info_panel = _make_info_panel(size=(dynamic_w, panel_h), text_lines=lines)
             merged = _stack_side_by_side(im, info_panel)
 
             # 控制最大宽度（可选）
