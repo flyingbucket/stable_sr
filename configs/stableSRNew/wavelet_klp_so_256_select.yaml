@@ -23,8 +23,7 @@ model:
     ckpt_path: "/home/flyingbucket/stablesr/logs/2025-08-15T22-56-24_W_KLP_SO_256/checkpoints/epoch=000024.ckpt"
     only_model: False
     learn_logvar: False
-    ignore_keys:
-      []
+    ignore_keys: []
       # - "first_stage_model"
       # - "model.diffusion_model.*.attn2.to_k"
       # - "model.diffusion_model.*.attn2.to_v"
@@ -210,11 +209,8 @@ lightning:
         batch_frequency: 5000
         max_images: 4
         increase_log_steps: False
-
   trainer:
+    benchmark: true
+    max_epochs: 200
+    check_val_every_n_epoch: 2 # 每 2 个 epoch 做一次验证
     gpus: [1]
-    benchmark: True
-    max_epochs: 200 # 可选，也可以用 max_steps
-    val_check_interval: 0.5 # 每个 epoch 内验证 2 次
-    check_val_every_n_epoch: 1 # 每个 epoch 执行验证
-    accelerator: ddp
