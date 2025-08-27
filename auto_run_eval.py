@@ -32,7 +32,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--ckpt_name", type=str, help="The name of ckpt that you want to eval"
     )
-    parser.add_argument("--gt_path", type=str, help="Path to test set image dir,could be covered in task.json")
+    parser.add_argument(
+        "--gt_path",
+        type=str,
+        help="Path to test set image dir,could be covered in task.json",
+    )
     parser.add_argument("--gpu", type=int, help="GPU id")
     parser.add_argument(
         "--batch_size", type=int, help="batch_size to use ,default 6", default=6
@@ -51,15 +55,10 @@ if __name__ == "__main__":
         "--eta", type=float, help="ETA to use when in DDIM mode", default=0.5
     )
     parser.add_argument(
-        "--max_batch",
-        type=int,
-        default=None,
-        help="Max number of batches to eval"
+        "--max_batch", type=int, default=None, help="Max number of batches to eval"
     )
     parser.add_argument(
-        "--save_images",
-        action="store_true",
-        help="Whether t save inferene images"
+        "--save_images", action="store_true", help="Whether t save inferene images"
     )
 
     args = parser.parse_args()
@@ -103,10 +102,10 @@ if __name__ == "__main__":
         step_flag = task["step_flag"]
         step_value = task["step_value"]
         dataset = task["dataset"]
-        ckpt_name = task.get("ckpt_name",ckpt_name)
-        gt_path = task.get("gt_path",gt_path)
-        detail_dir = task.get("detail_dir",detail_dir)
-        max_batch = task.get("max_batch",None)
+        ckpt_name = task.get("ckpt_name", ckpt_name)
+        gt_path = task.get("gt_path", gt_path)
+        detail_dir = task.get("detail_dir", detail_dir)
+        max_batch = task.get("max_batch", None)
         # === 跳过逻辑（例）===
         if int(task_id) in skip:
             # print(f"Skiping task {int(task_id)}")
@@ -131,12 +130,12 @@ if __name__ == "__main__":
             save_path,
             "--detail_dir",
             detail_dir,
-            "--max_batch",
-            str(max_batch)
         ]
-        
+
+        if max_batch:
+            cmd += ["--max_batch", str(max_batch)]
         if save_images:
-            cmd+=["--save_images"]
+            cmd += ["--save_images"]
 
         if "ddim" in script:
             cmd += ["--ddim_eta", str(eta)]
