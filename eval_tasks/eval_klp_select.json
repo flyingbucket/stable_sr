@@ -1,7 +1,7 @@
 {
     "tasks": {
         "1": {
-            "logdir": "logs/2025-08-26T23-03-04_W_KLP_SO_256_select",
+            "logdir": "logs/2025-08-15T22-56-24_W_KLP_SO_256",
             "mode": "DDPM original",
             "script": "eval_ddpm.py",
             "step_flag": "--ddpm_step",
@@ -11,7 +11,7 @@
             "gt_path": "/home/flyingbucket/DataStore/selected_datasets/korea"
         },
         "2": {
-            "logdir": "logs/2025-08-26T23-03-04_W_KLP_SO_256_select",
+            "logdir": "logs/2025-08-15T22-56-24_W_KLP_SO_256",
             "mode": "DDPM original",
             "script": "eval_ddpm.py",
             "step_flag": "--ddpm_step",
@@ -21,7 +21,7 @@
             "gt_path": "/home/flyingbucket/DataStore/selected_datasets/shandong"
         },
         "3": {
-            "logdir": "logs/2025-08-26T23-03-04_W_KLP_SO_256_select",
+            "logdir": "logs/2025-08-15T22-56-24_W_KLP_SO_256",
             "mode": "DDPM original",
             "script": "eval_ddpm.py",
             "step_flag": "--ddpm_step",
@@ -32,7 +32,7 @@
             "max_batch": 100
         },
         "4": {
-            "logdir": "logs/2025-08-26T23-03-04_W_KLP_SO_256_select",
+            "logdir": "logs/2025-08-15T22-56-24_W_KLP_SO_256",
             "mode": "DDPM original",
             "script": "eval_ddpm.py",
             "step_flag": "--ddpm_step",
@@ -42,7 +42,7 @@
             "gt_path": "/home/flyingbucket/DataStore/selected_datasets/iceye"
         },
         "5": {
-            "logdir": "logs/2025-08-26T23-03-04_W_KLP_SO_256_select",
+            "logdir": "logs/2025-08-15T22-56-24_W_KLP_SO_256",
             "mode": "DDPM original",
             "script": "eval_ddpm.py",
             "step_flag": "--ddpm_step",
@@ -52,7 +52,7 @@
             "gt_path": "/home/flyingbucket/DataStore/selected_datasets/HRSARBuD"
         },
         "6": {
-            "logdir": "logs/2025-08-26T23-03-04_W_KLP_SO_256_select",
+            "logdir": "logs/2025-08-15T22-56-24_W_KLP_SO_256",
             "mode": "DDPM original",
             "script": "eval_ddpm.py",
             "step_flag": "--ddpm_step",
@@ -63,7 +63,7 @@
             "max_batch": 100
         },
         "7": {
-            "logdir": "logs/2025-08-26T23-03-04_W_KLP_SO_256_select",
+            "logdir": "logs/2025-08-15T22-56-24_W_KLP_SO_256",
             "mode": "DDPM original",
             "script": "eval_ddpm.py",
             "step_flag": "--ddpm_step",

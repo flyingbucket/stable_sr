@@ -7,6 +7,8 @@ import sys
 import torch
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+from typing import Dict, Any
 from filelock import FileLock
 from tqdm import tqdm
 from omegaconf import OmegaConf
@@ -144,6 +146,102 @@ def bootstrap_ci(data, confidence=0.95, n_bootstrap=10000):
     return np.mean(data), lower, upper
 
 
+def save_compare_img(
+    gt: np.ndarray,
+    pred: np.ndarray,
+    metrics: Dict[str, Any],
+    compare_dir: str,
+    img_name: str,
+    show_diff: bool = True,
+    diff_overlay: bool = False,
+    diff_percentile: float = 99.0,
+) -> None:
+    """
+    参数
+    ----
+    show_diff : 是否显示 |GT-PRED| 面板（第三列）。
+    diff_overlay : 若为 True，用热力图把 diff 叠加在 GT 上（替代第三列独立显示）。
+    diff_percentile : 可视化时把 diff 按该百分位缩放（增强对比）。
+    """
+    assert gt.ndim == 2 and pred.ndim == 2, "gt/pred 必须是 2D 灰度图"
+
+    out_path = os.path.join(compare_dir, img_name)
+
+    # 误差可视化准备
+    if show_diff or diff_overlay:
+        diff = np.abs(pred - gt)
+        # 百分位缩放（避免极少数异常点把对比拉平）
+        vmax = np.percentile(diff, diff_percentile)
+        if vmax <= 1e-12:
+            vmax = 1.0
+        diff_vis = np.clip(diff / vmax, 0, 1)
+    else:
+        diff_vis = None
+
+    # 布局：GT | PRED | (DIFF 或 Overlay)
+    ncols = 2 if (not show_diff and not diff_overlay) else 3
+    fig, axes = plt.subplots(1, ncols, figsize=(4 * ncols, 4), dpi=150)
+
+    if ncols == 2:
+        ax0, ax1 = axes
+    else:
+        ax0, ax1, ax2 = axes
+
+    for ax in axes if isinstance(axes, (list, np.ndarray)) else [axes]:
+        ax.set_axis_off()
+
+    im0 = ax0.imshow(gt, cmap="gray", vmin=0, vmax=1, interpolation="nearest")
+    ax0.set_title("GT")
+
+    im1 = ax1.imshow(pred, cmap="gray", vmin=0, vmax=1, interpolation="nearest")
+    ax1.set_title("PRED")
+
+    if ncols == 3:
+        if diff_overlay:
+            ax2.imshow(gt, cmap="gray", vmin=0, vmax=1, interpolation="nearest")
+            ax2.imshow(
+                diff_vis,
+                cmap="inferno",
+                vmin=0,
+                vmax=1,
+                alpha=0.6,
+                interpolation="nearest",
+            )
+            ax2.set_title("GT + |GT-PRED| overlay")
+        else:
+            im2 = ax2.imshow(
+                diff_vis, cmap="inferno", vmin=0, vmax=1, interpolation="nearest"
+            )
+            ax2.set_title("|GT - PRED|")
+            cbar = fig.colorbar(im2, ax=ax2, fraction=0.046, pad=0.04)
+            cbar.ax.tick_params(labelsize=8)
+
+    # 标题汇总
+    line_parts = []
+    if "mode" in metrics:
+        line_parts.append(f"[{metrics['mode']}]")
+    if "psnr" in metrics:
+        line_parts.append(f"PSNR {metrics['psnr']:.3f} dB")
+    if "ssim" in metrics:
+        line_parts.append(f"SSIM {metrics['ssim']:.4f}")
+    if "lpips" in metrics:
+        line_parts.append(f"LPIPS {metrics['lpips']:.4f}")
+    if "enl" in metrics:
+        line_parts.append(f"ENL {metrics['enl']:.3f}")
+    if "epi" in metrics:
+        line_parts.append(f"EPI {metrics['epi']:.3f}")
+
+    title_left = metrics.get("img", img_name)
+    title_right = "  |  ".join(line_parts)
+    fig.suptitle(f"{title_left}   {title_right}", y=0.98, fontsize=10)
+
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+
+    fig.savefig(out_path, bbox_inches="tight", pad_inches=0.05)
+    assert os.path.exists(out_path), "failed to save compare image"
+    plt.close(fig)
+
+
 def evaluate(logdir, ckpt_name, args, mode):
     if args.gpu == -1 or not torch.cuda.is_available():
         device = torch.device("cpu")
@@ -213,6 +311,7 @@ def evaluate(logdir, ckpt_name, args, mode):
     os.makedirs(args.detail_dir, exist_ok=True)
     df_dir = os.path.join(args.detail_dir, exp_name, ckpt_name_in_df_path)
     os.makedirs(df_dir, exist_ok=True)
+    compare_dir = os.path.join(df_dir, "compare")
     df_name = f"{mode}_{args.ddpm_steps}_{dataset_name}.csv"
     df_path = os.path.join(df_dir, df_name)
     assert not os.path.exists(df_path), f"{df_path} shoule be empty"
@@ -350,6 +449,11 @@ def evaluate(logdir, ckpt_name, args, mode):
                         "enl": enl,
                         "epi": epi,
                     }
+                    if save_images:
+                        os.makedirs(compare_dir, exist_ok=True)
+                        save_compare_img(
+                            gt_img, pred_img, metrics_of_this_img, compare_dir, img_name
+                        )
                     metrics_of_this_batch.append(metrics_of_this_img)
 
                 df_batch = pd.DataFrame(metrics_of_this_batch)
@@ -427,7 +531,7 @@ def evaluate(logdir, ckpt_name, args, mode):
     return res_dict
 
 
-if __name__ == "__main__":
+def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--logdir", type=str, required=True, help="训练日志根目录")
     parser.add_argument(
@@ -474,9 +578,12 @@ if __name__ == "__main__":
         action="store_true",
         help="Whether to save inference result images",
     )
-
     args = parser.parse_args()
+    return args
 
+
+if __name__ == "__main__":
+    args = parse_args()
     # prepare eval INFO
     # get experiment name from logdir
     basename = os.path.basename(args.logdir)  # 获取最后一层目录名
