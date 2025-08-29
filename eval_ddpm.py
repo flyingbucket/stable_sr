@@ -198,12 +198,10 @@ def save_compare_img(
 
     if ncols == 3:
         if diff_overlay:
-            ax2.imshow(gt, cmap="gray", vmin=0, vmax=1, interpolation="nearest")
+            ax2.imshow(gt, cmap="gray", interpolation="nearest")
             ax2.imshow(
                 diff_vis,
                 cmap="inferno",
-                vmin=0,
-                vmax=1,
                 alpha=0.6,
                 interpolation="nearest",
             )
@@ -452,7 +450,12 @@ def evaluate(logdir, ckpt_name, args, mode):
                     if save_images:
                         os.makedirs(compare_dir, exist_ok=True)
                         save_compare_img(
-                            gt_img, pred_img, metrics_of_this_img, compare_dir, img_name
+                            gt,
+                            pred,
+                            metrics_of_this_img,
+                            compare_dir,
+                            img_name,
+                            diff_overlay=False,
                         )
                     metrics_of_this_batch.append(metrics_of_this_img)
 
