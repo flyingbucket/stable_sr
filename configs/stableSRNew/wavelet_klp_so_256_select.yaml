@@ -20,7 +20,7 @@ model:
     monitor: val/loss_simple_ema
     scale_factor: 0.18215
     use_ema: False
-    ckpt_path: "/home/flyingbucket/stablesr/logs/2025-08-15T22-56-24_W_KLP_SO_256/checkpoints/epoch=000024.ckpt"
+    ckpt_path: "/home/flyingbucket/stablesr/logs/2025-08-15T22-56-24_W_KLP_SO_256/checkpoints/epoch=000040.ckpt"
     only_model: False
     learn_logvar: False
     ignore_keys: []
@@ -140,7 +140,6 @@ data:
             "/home/flyingbucket/DataStore/selected_datasets/korea",
             "/home/flyingbucket/DataStore/selected_datasets/shandong",
             "/home/flyingbucket/DataStore/selected_datasets/WHU",
-            "/home/flyingbucket/DataStore/selected_datasets/WHU2",
           ]
         crop_size: 256
         io_backend:
@@ -161,7 +160,6 @@ data:
             "/home/flyingbucket/DataStore/selected_datasets/korea",
             "/home/flyingbucket/DataStore/selected_datasets/shandong",
             "/home/flyingbucket/DataStore/selected_datasets/WHU",
-            "/home/flyingbucket/DataStore/selected_datasets/WHU2",
           ]
         crop_size: 256
         io_backend:
@@ -213,4 +211,4 @@ lightning:
     benchmark: true
     max_epochs: 200
     check_val_every_n_epoch: 2 # 每 2 个 epoch 做一次验证
-    gpus: [1]
+    gpus: [0]

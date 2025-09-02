@@ -12,6 +12,7 @@ from typing import Dict, Any
 from filelock import FileLock
 from tqdm import tqdm
 from omegaconf import OmegaConf
+from datetime import datetime
 from ldm.util import instantiate_from_config
 from skimage.metrics import peak_signal_noise_ratio as compare_psnr
 from skimage.metrics import structural_similarity as compare_ssim
@@ -148,6 +149,7 @@ def bootstrap_ci(data, confidence=0.95, n_bootstrap=10000):
 
 def save_compare_img(
     gt: np.ndarray,
+    lq: np.ndarray,
     pred: np.ndarray,
     metrics: Dict[str, Any],
     compare_dir: str,
@@ -179,13 +181,13 @@ def save_compare_img(
         diff_vis = None
 
     # 布局：GT | PRED | (DIFF 或 Overlay)
-    ncols = 2 if (not show_diff and not diff_overlay) else 3
+    ncols = 3 if (not show_diff and not diff_overlay) else 4
     fig, axes = plt.subplots(1, ncols, figsize=(4 * ncols, 4), dpi=150)
 
-    if ncols == 2:
-        ax0, ax1 = axes
-    else:
+    if ncols == 3:
         ax0, ax1, ax2 = axes
+    else:
+        ax0, ax1, ax2, ax3 = axes
 
     for ax in axes if isinstance(axes, (list, np.ndarray)) else [axes]:
         ax.set_axis_off()
@@ -193,25 +195,28 @@ def save_compare_img(
     im0 = ax0.imshow(gt, cmap="gray", vmin=0, vmax=1, interpolation="nearest")
     ax0.set_title("GT")
 
-    im1 = ax1.imshow(pred, cmap="gray", vmin=0, vmax=1, interpolation="nearest")
-    ax1.set_title("PRED")
+    im1 = ax1.imshow(lq, cmap="gray", vmin=0, vmax=1, interpolation="nearest")
+    ax1.set_title("LQ")
 
-    if ncols == 3:
+    im2 = ax2.imshow(pred, cmap="gray", vmin=0, vmax=1, interpolation="nearest")
+    ax2.set_title("PRED")
+
+    if ncols == 4:
         if diff_overlay:
-            ax2.imshow(gt, cmap="gray", interpolation="nearest")
-            ax2.imshow(
+            ax3.imshow(gt, cmap="gray", interpolation="nearest")
+            ax3.imshow(
                 diff_vis,
                 cmap="inferno",
                 alpha=0.6,
                 interpolation="nearest",
             )
-            ax2.set_title("GT + |GT-PRED| overlay")
+            ax3.set_title("GT + |GT-PRED| overlay")
         else:
-            im2 = ax2.imshow(
+            im2 = ax3.imshow(
                 diff_vis, cmap="inferno", vmin=0, vmax=1, interpolation="nearest"
             )
-            ax2.set_title("|GT - PRED|")
-            cbar = fig.colorbar(im2, ax=ax2, fraction=0.046, pad=0.04)
+            ax3.set_title("|GT - PRED|")
+            cbar = fig.colorbar(im2, ax=ax3, fraction=0.046, pad=0.04)
             cbar.ax.tick_params(labelsize=8)
 
     # 标题汇总
@@ -306,6 +311,9 @@ def evaluate(logdir, ckpt_name, args, mode):
     )
     dataset_name = str(dataset).rsplit(".", 1)[-1]
     ckpt_name_in_df_path = os.path.splitext(ckpt_name)[0]
+    ts = datetime.now().strftime("%Y%m%dT%H%M%S")
+    ckpt_name_in_df_path = f"{ckpt_name_in_df_path}_{ts}"
+
     os.makedirs(args.detail_dir, exist_ok=True)
     df_dir = os.path.join(args.detail_dir, exp_name, ckpt_name_in_df_path)
     os.makedirs(df_dir, exist_ok=True)
@@ -376,6 +384,7 @@ def evaluate(logdir, ckpt_name, args, mode):
                     )
 
                 input_hq = log["input_hq"].detach().cpu().numpy()  # [B,1,H,W]
+                input_lq = log["input_lq"].detach().cpu().numpy()
                 samples = log["samples"].detach().cpu().numpy()  # [B,1,H,W]
 
                 B = input_hq.shape[0]
@@ -383,6 +392,7 @@ def evaluate(logdir, ckpt_name, args, mode):
                 metrics_of_this_batch = []
                 for i in range(B):
                     gt = min_max_normalize(input_hq[i, 0])
+                    lq = min_max_normalize(input_lq[i, 0])
                     pred = min_max_normalize(samples[i, 0])
 
                     # 保存 FID 图片
@@ -451,6 +461,7 @@ def evaluate(logdir, ckpt_name, args, mode):
                         os.makedirs(compare_dir, exist_ok=True)
                         save_compare_img(
                             gt,
+                            lq,
                             pred,
                             metrics_of_this_img,
                             compare_dir,
