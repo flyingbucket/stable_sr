@@ -63,7 +63,7 @@
             "max_batch": 100
         }
     },
-    "skip": [],
+    "skip": [7],
     "primary": []
 }
 
