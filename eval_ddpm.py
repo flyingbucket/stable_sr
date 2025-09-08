@@ -166,8 +166,32 @@ def save_compare_img(
     diff_percentile : 可视化时把 diff 按该百分位缩放（增强对比）。
     """
     assert gt.ndim == 2 and pred.ndim == 2, "gt/pred 必须是 2D 灰度图"
+    # 创建相应的目录
+    gt_dir = os.path.join(compare_dir, "gt")
+    lq_dir = os.path.join(compare_dir, "lq")
+    pred_dir = os.path.join(compare_dir, "pred")
+    compare_plt_dir = os.path.join(compare_dir, "compare_plt")
 
-    out_path = os.path.join(compare_dir, img_name)
+    # 确保目录存在
+    os.makedirs(gt_dir, exist_ok=True)
+    os.makedirs(lq_dir, exist_ok=True)
+    os.makedirs(pred_dir, exist_ok=True)
+    os.makedirs(compare_plt_dir, exist_ok=True)
+
+    # 保存 gt, lq, pred 到各自的文件夹
+    gt_path = os.path.join(gt_dir, img_name)
+    lq_path = os.path.join(lq_dir, img_name)
+    pred_path = os.path.join(pred_dir, img_name)
+
+    gt_img = np.uint8(np.clip(gt * 255, 0, 255))
+    lq_img = np.uint8(np.clip(lq * 255, 0, 255))
+    pred_img = np.uint8(np.clip(pred * 255, 0, 255))
+    # 将 gt, lq, pred 保存为图像文件
+    cv2.imwrite(gt_path, gt_img)
+    cv2.imwrite(lq_path, lq_img)
+    cv2.imwrite(pred_path, pred_img)
+
+    out_path = os.path.join(compare_plt_dir, img_name)
 
     # 误差可视化准备
     if show_diff or diff_overlay:
@@ -539,13 +563,13 @@ def evaluate(logdir, ckpt_name, args, mode):
         "enl": enl,
         "epi": epi,
     }
-    if not save_images:
-        shutil.rmtree(fid_real)
-        shutil.rmtree(fid_fake)
+    # if not save_images:
+    shutil.rmtree(fid_real)
+    shutil.rmtree(fid_fake)
     return res_dict
 
 
-def parse_args():
+def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--logdir", type=str, required=True, help="训练日志根目录")
     parser.add_argument(
@@ -597,7 +621,7 @@ def parse_args():
 
 
 if __name__ == "__main__":
-    args = parse_args()
+    args = get_args()
     # prepare eval INFO
     # get experiment name from logdir
     basename = os.path.basename(args.logdir)  # 获取最后一层目录名
