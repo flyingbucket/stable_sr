@@ -1,0 +1,69 @@
+{
+    "tasks": {
+        "1": {
+            "logdir": "/home/flyingbucket/stablesr/logs/2025-08-15T22-56-24_W_KLP_SO_256",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null,
+            "detail_dir": "eval_klp_256_select/DDHR-korea",
+            "gt_path": "/home/flyingbucket/DataStore/selected_datasets/korea"
+        },
+        "2": {
+            "logdir": "/home/flyingbucket/stablesr/logs/2025-08-15T22-56-24_W_KLP_SO_256",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null,
+            "detail_dir": "eval_klp_256_select/DDHR-shandong",
+            "gt_path": "/home/flyingbucket/DataStore/selected_datasets/shandong"
+        },
+        "3": {
+            "logdir": "/home/flyingbucket/stablesr/logs/2025-08-15T22-56-24_W_KLP_SO_256",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null,
+            "detail_dir": "eval_klp_256_select/coco",
+            "gt_path": "/home/flyingbucket/DataStore/selected_datasets/coco",
+            "max_batch": 100
+        },
+        "4": {
+            "logdir": "/home/flyingbucket/stablesr/logs/2025-08-15T22-56-24_W_KLP_SO_256",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null,
+            "detail_dir": "eval_klp_256_select/iceye",
+            "gt_path": "/home/flyingbucket/DataStore/selected_datasets/iceye"
+        },
+        "5": {
+            "logdir": "/home/flyingbucket/stablesr/logs/2025-08-15T22-56-24_W_KLP_SO_256",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null,
+            "detail_dir": "eval_klp_256_select/HR-SARBuD",
+            "gt_path": "/home/flyingbucket/DataStore/selected_datasets/HRSARBuD"
+        },
+        "6": {
+            "logdir": "/home/flyingbucket/stablesr/logs/2025-08-15T22-56-24_W_KLP_SO_256",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null,
+            "detail_dir": "eval_klp_256_select/WHU",
+            "gt_path": "/home/flyingbucket/DataStore/selected_datasets/WHU",
+            "max_batch": 100
+        }
+    },
+    "skip": [],
+    "primary": []
+}
+
