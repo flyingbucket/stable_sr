@@ -1,7 +1,5 @@
 import os
 import json
-from os.path import exists
-import re
 import shutil
 import argparse
 import contextlib
@@ -11,17 +9,12 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from typing import Dict, Any
-from filelock import FileLock
 from tqdm import tqdm
-from omegaconf import OmegaConf
-from datetime import datetime
-from ldm.util import instantiate_from_config
 from skimage.metrics import peak_signal_noise_ratio as compare_psnr
 from skimage.metrics import structural_similarity as compare_ssim
 import lpips
 from pytorch_fid import fid_score
 import cv2
-import copy
 
 
 @contextlib.contextmanager
@@ -171,21 +164,21 @@ def evaluate(sample_dir, gt_dir, lq_dir, result_dir, save_images=True):
         norm_img = (img - img_min) / (img_max - img_min)
         return norm_img.astype(np.float32)
 
-    for img_name in os.listdir(sample_dir):
+    for img_name in tqdm(os.listdir(sample_dir), desc="Evaluating"):
         s_path = os.path.join(sample_dir, img_name)
         lq_path = os.path.join(lq_dir, img_name)
         gt_path = os.path.join(gt_dir, img_name)
         if os.path.exists(gt_path):
-            gt = min_max_normalize(cv2.imread(gt_path, cv2.IMREAD_UNCHANGED))
+            gt = min_max_normalize(cv2.imread(gt_path, cv2.IMREAD_GRAYSCALE))
         else:
             print(f"{img_name} not found in GT DIR {gt_dir}")
             continue
         if os.path.exists(lq_path):
-            lq = min_max_normalize(cv2.imread(lq_path, cv2.IMREAD_UNCHANGED))
+            lq = min_max_normalize(cv2.imread(lq_path, cv2.IMREAD_GRAYSCALE))
         else:
             print(f"{img_name} not found in lq DIR {lq_dir}")
             continue
-        pred = cv2.imread(s_path, cv2.IMREAD_UNCHANGED)
+        pred = cv2.imread(s_path, cv2.IMREAD_GRAYSCALE)
 
         # 保存 FID 图片
         gt_img = (gt * 255).clip(0, 255).astype(np.uint8)
@@ -199,7 +192,7 @@ def evaluate(sample_dir, gt_dir, lq_dir, result_dir, save_images=True):
         # === PSNR & SSIM ===
         # print(f"gt shape:{gt.shape}\tpred shape: {pred.shape}")
         psnr = compare_psnr(gt, pred, data_range=1.0)
-        ssim = compare_ssim(gt, pred, data_range=1.0)
+        ssim = compare_ssim(gt, pred, data_range=1.0, win_size=7)
         psnr_list.append(psnr)
         ssim_list.append(ssim)
 
@@ -227,7 +220,6 @@ def evaluate(sample_dir, gt_dir, lq_dir, result_dir, save_images=True):
         img_name = os.path.basename(img_path)
         metrics_of_this_img = {
             "img": img_name,
-            "mode": mode,
             "psnr": psnr,
             "ssim": ssim,
             "lpips": lp.item(),
@@ -246,7 +238,7 @@ def evaluate(sample_dir, gt_dir, lq_dir, result_dir, save_images=True):
                 diff_overlay=False,
             )
 
-        df_img = pd.DataFrame(metrics_of_this_img)
+        df_img = pd.DataFrame([metrics_of_this_img])
         df_img.to_csv(
             df_path,
             mode="a",
