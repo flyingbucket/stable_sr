@@ -78,53 +78,53 @@ class WaveletSRDataset(Dataset):
         return dwt_tensor
 
     def __getitem__(self, index):
-            tries = 0
-            while tries < 100:
-                path = self.image_paths[index]
-                try:
-                    img_gt = self._load_image(path)  # [1, H, W]
-                    _, h, w = img_gt.shape
+        tries = 0
+        while tries < 100:
+            path = self.image_paths[index]
+            try:
+                img_gt = self._load_image(path)  # [1, H, W]
+                _, h, w = img_gt.shape
 
-                    # 判断尺寸是否满足要求
-                    if h < self.crop_size or w < self.crop_size:
-                        # 跳过尺寸过小的图片
-                        tries += 1
-                        index = (index + 1) % len(self.image_paths)
-                        continue
-
-                    # 裁剪中心区域
-                    if self.crop_size:
-                        img_gt = self._crop_center(img_gt, self.crop_size)
-
-                    # 下采样 + 上采样 (bicubic)
-                    img_gt_batched = img_gt.unsqueeze(0)
-                    lq = F.interpolate(
-                        img_gt_batched,
-                        scale_factor=0.25,
-                        mode="bicubic",
-                        align_corners=False,
-                    )
-                    lq_up = F.interpolate(
-                        lq, size=img_gt.shape[-2:], mode="bicubic", align_corners=False
-                    )
-                    lq_up = lq_up.squeeze(0)
-
-                    # 小波变换
-                    wavelet = self._dwt_tensor(lq_up)
-
-                    return {
-                        "gt_image": img_gt,
-                        "lq_image": lq_up,
-                        "wavelet": wavelet,
-                        "gt_path": path,
-                    }
-
-                except Exception as e:
-                    # 读取异常或处理异常，跳过当前图片
+                # 判断尺寸是否满足要求
+                if h < self.crop_size or w < self.crop_size:
+                    # 跳过尺寸过小的图片
                     tries += 1
                     index = (index + 1) % len(self.image_paths)
+                    continue
 
-            raise RuntimeError(f"Too many bad images starting from index {index}")
+                # 裁剪中心区域
+                if self.crop_size:
+                    img_gt = self._crop_center(img_gt, self.crop_size)
+
+                # 下采样 + 上采样 (bicubic)
+                img_gt_batched = img_gt.unsqueeze(0)
+                lq = F.interpolate(
+                    img_gt_batched,
+                    scale_factor=0.25,
+                    mode="bicubic",
+                    align_corners=False,
+                )
+                lq_up = F.interpolate(
+                    lq, size=img_gt.shape[-2:], mode="bicubic", align_corners=False
+                )
+                lq_up = lq_up.squeeze(0)
+
+                # 小波变换
+                wavelet = self._dwt_tensor(lq_up)
+
+                return {
+                    "gt_image": img_gt,
+                    "lq_image": lq_up,
+                    "wavelet": wavelet,
+                    "gt_path": path,
+                }
+
+            except Exception as e:
+                # 读取异常或处理异常，跳过当前图片
+                tries += 1
+                index = (index + 1) % len(self.image_paths)
+
+        raise RuntimeError(f"Too many bad images starting from index {index}")
 
     def __len__(self):
         return len(self.image_paths)
@@ -330,39 +330,88 @@ class WaveletSRDGDataset(Dataset):
 
         return dwt_tensor
 
+    # def __getitem__(self, index):
+    #     path = self.image_paths[index]
+    #     img_gt = self._load_image(path)  # [1, H, W]
+    #
+    #     degraded = img_gt.clone()
+    #     degraded_np = degraded.squeeze(0).numpy().astype(np.float32)
+    #     _, _, degraded_np = simulate_degradation(degraded_np)
+    #     if self.crop_size:
+    #         img_gt = self._crop_center(img_gt, self.crop_size)
+    #
+    #     # => [1, H, W] → [1, 1, H, W]
+    #     img_gt_batched = img_gt.unsqueeze(0)
+    #     degraded_batched = degraded.unsqueeze(0)
+    #
+    #     # 下采样 + 上采样（bicubic）
+    #     lq_up = F.interpolate(
+    #         degraded_batched,
+    #         size=img_gt.shape[-2:],
+    #         mode="bicubic",
+    #         align_corners=False,
+    #     )
+    #     # 去掉 batch 维度 → [1, H, W]
+    #     lq_up = lq_up.squeeze(0)
+    #
+    #     # 小波变换在 lq 图上（上采样前/后均可）
+    #     wavelet = self._dwt_tensor(lq_up)  # shape: [4, H/2, W/2]
+    #
+    #     return {
+    #         "gt_image": img_gt,  # [1, H, W]
+    #         "lq_image": lq_up,  # [1, H, W]
+    #         "wavelet": wavelet,  # [4, H/2, W/2]
+    #         "gt_path": path,
+    #     }
+
     def __getitem__(self, index):
-        path = self.image_paths[index]
-        img_gt = self._load_image(path)  # [1, H, W]
+        tries = 0
+        while tries < 100:
+            path = self.image_paths[index]
+            try:
+                img_gt = self._load_image(path)  # [1, H, W]
+                _, h, w = img_gt.shape
 
-        degraded = img_gt.clone()
-        degraded_np = degraded.squeeze(0).numpy().astype(np.float32)
-        _, _, degraded_np = simulate_degradation(degraded_np)
-        if self.crop_size:
-            img_gt = self._crop_center(img_gt, self.crop_size)
+                # 判断尺寸是否满足要求
+                if h < self.crop_size or w < self.crop_size:
+                    # 跳过尺寸过小的图片
+                    tries += 1
+                    index = (index + 1) % len(self.image_paths)
+                    continue
 
-        # => [1, H, W] → [1, 1, H, W]
-        img_gt_batched = img_gt.unsqueeze(0)
-        degraded_batched = degraded.unsqueeze(0)
+                # 裁剪中心区域
+                if self.crop_size:
+                    img_gt = self._crop_center(img_gt, self.crop_size)
 
-        # 下采样 + 上采样（bicubic）
-        lq_up = F.interpolate(
-            degraded_batched,
-            size=img_gt.shape[-2:],
-            mode="bicubic",
-            align_corners=False,
-        )
-        # 去掉 batch 维度 → [1, H, W]
-        lq_up = lq_up.squeeze(0)
+                # 下采样 + 上采样 (bicubic)
+                degraded = img_gt.clone()
+                degraded_np = degraded.squeeze(0).numpy().astype(np.float32)
+                _, _, degraded_np = simulate_degradation(degraded_np)
+                degraded_batched = degraded.unsqueeze(0)
+                lq_up = F.interpolate(
+                    degraded_batched,
+                    size=img_gt.shape[-2:],
+                    mode="bicubic",
+                    align_corners=False,
+                )
+                lq_up = lq_up.squeeze(0)
 
-        # 小波变换在 lq 图上（上采样前/后均可）
-        wavelet = self._dwt_tensor(lq_up)  # shape: [4, H/2, W/2]
+                # 小波变换
+                wavelet = self._dwt_tensor(lq_up)
 
-        return {
-            "gt_image": img_gt,  # [1, H, W]
-            "lq_image": lq_up,  # [1, H, W]
-            "wavelet": wavelet,  # [4, H/2, W/2]
-            "gt_path": path,
-        }
+                return {
+                    "gt_image": img_gt,
+                    "lq_image": lq_up,
+                    "wavelet": wavelet,
+                    "gt_path": path,
+                }
+
+            except Exception as e:
+                # 读取异常或处理异常，跳过当前图片
+                tries += 1
+                index = (index + 1) % len(self.image_paths)
+
+        raise RuntimeError(f"Too many bad images starting from index {index}")
 
     def __len__(self):
         return len(self.image_paths)

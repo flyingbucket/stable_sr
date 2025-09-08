@@ -16,11 +16,10 @@ model:
     image_size: 256
     channels: 4
     cond_stage_trainable: True
-
+    ckpt_path: "/home/flyingbucket/stablesr/logs/2025-08-15T22-56-24_W_KLP_SO_256/checkpoints/epoch=000040.ckpt"
     monitor: val/loss_simple_ema
     scale_factor: 0.18215
     use_ema: False
-    # ckpt_path: "ckpt/KL_256_e6_merge.ckpt"
     only_model: False
     learn_logvar: False
     ignore_keys: []
@@ -126,7 +125,7 @@ data:
     num_workers: 6
     wrap: false
     train:
-      target: basicsr.data.wavelet_dataset.WaveletSRDataset
+      target: basicsr.data.wavelet_dataset.WaveletSRDGDataset
       params:
         image_type: ["png", "jpg", "tif", "bmd"]
         # gt_path: "/home/flyingbucket/DataStore/WHU_512"
@@ -146,7 +145,7 @@ data:
         use_rot: False
 
     validation:
-      target: basicsr.data.wavelet_dataset.WaveletSRDataset
+      target: basicsr.data.wavelet_dataset.WaveletSRDGDataset
       params:
         image_type: ["png", "jpg", "tif", "bmd"]
         # gt_path: "/home/flyingbucket/DataStore/WHU_512_small"
@@ -172,7 +171,7 @@ test_data:
     num_workers: 6
     wrap: false
     test:
-      target: basicsr.data.wavelet_dataset.WaveletSRDataset
+      target: basicsr.data.wavelet_dataset.WaveletSRDGDataset
       params:
         # gt_path: "/home/flyingbucket/DataStore/WHU_512_small"
         gt_path:
@@ -205,7 +204,7 @@ lightning:
         increase_log_steps: False
 
   trainer:
-    gpus: [2, 3]
+    gpus: [1]
     benchmark: True
     max_epochs: 200 # 可选，也可以用 max_steps
     val_check_interval: 0.5 # 每个 epoch 内验证 2 次
