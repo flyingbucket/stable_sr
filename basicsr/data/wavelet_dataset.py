@@ -297,16 +297,26 @@ class WaveletSRDGDataset(Dataset):
             crop_size = params.get("crop_size", crop_size)
             wavelet = params.get("wavelet", wavelet)
 
-        # 兼容 ListConfig（配置中是列表形式）
+        self.image_paths = []
         if isinstance(gt_path, (ListConfig, list)):
-            assert len(gt_path) > 0, "gt_path 不能是空列表"
-            gt_path = gt_path[0]
+            for p in gt_path:
+                for ext in image_type:
+                    self.image_paths.extend(sorted(glob(os.path.join(p, f"*.{ext}"))))
+        elif isinstance(gt_path, str):
+            for ext in image_type:
+                self.image_paths.extend(sorted(glob(os.path.join(gt_path, f"*.{ext}"))))
+        else:
+            raise TypeError("gt_path 应为字符串或路径列表")
+        # # 兼容 ListConfig（配置中是列表形式）
+        # if isinstance(gt_path, (ListConfig, list)):
+        #     assert len(gt_path) > 0, "gt_path 不能是空列表"
+        #     gt_path = gt_path[0]
+        #
+        # assert isinstance(gt_path, str), (
+        #     f"gt_path 应为字符串，但实际为: {type(gt_path)}"
+        # )
 
-        assert isinstance(gt_path, str), (
-            f"gt_path 应为字符串，但实际为: {type(gt_path)}"
-        )
-
-        self.image_paths = sorted(glob(os.path.join(gt_path, "*.png")))
+        # self.image_paths = sorted(glob(os.path.join(gt_path, "*.png")))
         self.crop_size = crop_size
         self.wavelet = wavelet
 
