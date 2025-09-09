@@ -129,14 +129,7 @@ data:
       params:
         image_type: ["png", "jpg", "tif", "bmd"]
         # gt_path: "/home/flyingbucket/DataStore/WHU_512"
-        gt_path:
-          [
-            "/home/flyingbucket/DataStore/DDHRNet_DATA/korea/cloud/GF3",
-            "/home/flyingbucket/DataStore/DDHRNet_DATA/shandong/GF3",
-            "/home/flyingbucket/DataStore/NKU_coco/train_256",
-            "/home/flyingbucket/DataStore/iceye/train_256",
-            "/home/flyingbucket/DataStore/HR-SARBuD/images_256",
-          ]
+        gt_path: ["/home/flyingbucket/DataStore/DDHRNet_DATA/korea/cloud/GF3"]
         crop_size: 256
         io_backend:
           type: disk
@@ -150,13 +143,7 @@ data:
         image_type: ["png", "jpg", "tif", "bmd"]
         # gt_path: "/home/flyingbucket/DataStore/WHU_512_small"
         gt_path:
-          [
-            "/home/flyingbucket/DataStore/DDHRNet_DATA/korea/cloud/GF3_test",
-            "/home/flyingbucket/DataStore/DDHRNet_DATA/shandong/GF3_test",
-            "/home/flyingbucket/DataStore/NKU_coco/train_256_test",
-            "/home/flyingbucket/DataStore/iceye/train_256_test",
-            "/home/flyingbucket/DataStore/HR-SARBuD/images_256_test",
-          ]
+          ["/home/flyingbucket/DataStore/DDHRNet_DATA/korea/cloud/GF3_test"]
         crop_size: 256
         io_backend:
           type: disk
@@ -173,15 +160,8 @@ test_data:
     test:
       target: basicsr.data.wavelet_dataset.WaveletSRDGDataset
       params:
-        # gt_path: "/home/flyingbucket/DataStore/WHU_512_small"
         gt_path:
-          [
-            "/home/flyingbucket/DataStore/DDHRNet_DATA/korea/cloud/GF3_test",
-            "/home/flyingbucket/DataStore/DDHRNet_DATA/shandong/GF3_test",
-            "/home/flyingbucket/DataStore/NKU_coco/train_test",
-            "/home/flyingbucket/DataStore/iceye/train_256_test",
-            "/home/flyingbucket/DataStore/HR-SARBuD/images_256_test",
-          ]
+          ["/home/flyingbucket/DataStore/DDHRNet_DATA/korea/cloud/GF3_test"]
         image_type: ["png", "jpg", "tif", "bmd"]
         crop_size: 256
         io_backend:
