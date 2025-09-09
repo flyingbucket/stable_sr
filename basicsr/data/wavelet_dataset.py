@@ -144,15 +144,25 @@ class GradientSRDataset(Dataset):
             gt_path = params.get("gt_path", None)
             crop_size = params.get("crop_size", crop_size)
 
+        self.image_paths = []
         if isinstance(gt_path, (ListConfig, list)):
-            assert len(gt_path) > 0, "gt_path 不能是空列表"
-            gt_path = gt_path[0]
+            for p in gt_path:
+                for ext in image_type:
+                    self.image_paths.extend(sorted(glob(os.path.join(p, f"*.{ext}"))))
+        elif isinstance(gt_path, str):
+            for ext in image_type:
+                self.image_paths.extend(sorted(glob(os.path.join(gt_path, f"*.{ext}"))))
+        else:
+            raise TypeError("gt_path 应为字符串或路径列表")
+        # if isinstance(gt_path, (ListConfig, list)):
+        #     assert len(gt_path) > 0, "gt_path 不能是空列表"
+        #     gt_path = gt_path[0]
+        #
+        # assert isinstance(gt_path, str), (
+        #     f"gt_path 应为字符串，但实际为: {type(gt_path)}"
+        # )
 
-        assert isinstance(gt_path, str), (
-            f"gt_path 应为字符串，但实际为: {type(gt_path)}"
-        )
-
-        self.image_paths = sorted(glob(os.path.join(gt_path, "*.png")))
+        # self.image_paths = sorted(glob(os.path.join(gt_path, "*.png")))
         self.crop_size = crop_size
 
     def _load_image(self, path):
@@ -329,40 +339,6 @@ class WaveletSRDGDataset(Dataset):
         ).float()  # [4, H/2, W/2]
 
         return dwt_tensor
-
-    # def __getitem__(self, index):
-    #     path = self.image_paths[index]
-    #     img_gt = self._load_image(path)  # [1, H, W]
-    #
-    #     degraded = img_gt.clone()
-    #     degraded_np = degraded.squeeze(0).numpy().astype(np.float32)
-    #     _, _, degraded_np = simulate_degradation(degraded_np)
-    #     if self.crop_size:
-    #         img_gt = self._crop_center(img_gt, self.crop_size)
-    #
-    #     # => [1, H, W] → [1, 1, H, W]
-    #     img_gt_batched = img_gt.unsqueeze(0)
-    #     degraded_batched = degraded.unsqueeze(0)
-    #
-    #     # 下采样 + 上采样（bicubic）
-    #     lq_up = F.interpolate(
-    #         degraded_batched,
-    #         size=img_gt.shape[-2:],
-    #         mode="bicubic",
-    #         align_corners=False,
-    #     )
-    #     # 去掉 batch 维度 → [1, H, W]
-    #     lq_up = lq_up.squeeze(0)
-    #
-    #     # 小波变换在 lq 图上（上采样前/后均可）
-    #     wavelet = self._dwt_tensor(lq_up)  # shape: [4, H/2, W/2]
-    #
-    #     return {
-    #         "gt_image": img_gt,  # [1, H, W]
-    #         "lq_image": lq_up,  # [1, H, W]
-    #         "wavelet": wavelet,  # [4, H/2, W/2]
-    #         "gt_path": path,
-    #     }
 
     def __getitem__(self, index):
         tries = 0
