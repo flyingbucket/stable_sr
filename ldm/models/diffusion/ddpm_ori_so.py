@@ -1,10 +1,10 @@
-from ldm.models.diffusion.ddpm import LatentDiffusion,space_timesteps
+from ldm.models.diffusion.ddpm import LatentDiffusion, space_timesteps
 import torch
 import copy
 import random
 import torch.nn.functional as F
-from ldm.util import default,instantiate_from_config
-from einops import repeat,rearrange
+from ldm.util import default, instantiate_from_config
+from einops import repeat, rearrange
 from torchvision.utils import make_grid
 import torch
 import torch.nn as nn
@@ -14,44 +14,58 @@ from einops import rearrange, repeat
 from tqdm import tqdm
 from torchvision.utils import make_grid
 from pytorch_lightning.utilities.distributed import rank_zero_only
-from ldm.modules.diffusionmodules.util import make_beta_schedule, extract_into_tensor, noise_like
+from ldm.modules.diffusionmodules.util import (
+    make_beta_schedule,
+    extract_into_tensor,
+    noise_like,
+)
 from ldm.util import default, instantiate_from_config
 from ldm.models.autoencoder import IdentityFirstStage, AutoencoderKL
+
+
+def disabled_train(self, mode=True):
+    """Overwrite model.train with this function to make sure train/eval mode
+    does not change anymore."""
+    return self
+
 
 class LatentDiffusionOriSO(LatentDiffusion):
     """
     Latent Diffusion model using wavelet maps as cross-attention condition.
     The input is a bicubic-downsampled single-channel image, and the GT latent is computed from the original.
     """
-    def __init__(self,
-                 first_stage_config,
-                 cond_stage_config,
-                 structcond_stage_config=None,
-                 num_timesteps_cond=None,
-                 cond_stage_key="image",
-                 cond_stage_trainable=False,
-                 concat_mode=True,
-                 cond_stage_forward=None,
-                 conditioning_key=None,
-                 scale_factor=1.0,
-                 scale_by_std=False,
-                 only_model=False,
-                 p2_gamma=None,
-                 p2_k=None,
-                 unfrozen_first_stage=True,
-                 unfrozen_unet=False,
-                 unfrozen_cond_stage=True,
-                 time_replace=None,
-                 mix_ratio=0.0,
-                 *args, **kwargs):
-        
+
+    def __init__(
+        self,
+        first_stage_config,
+        cond_stage_config,
+        structcond_stage_config=None,
+        num_timesteps_cond=None,
+        cond_stage_key="image",
+        cond_stage_trainable=False,
+        concat_mode=True,
+        cond_stage_forward=None,
+        conditioning_key=None,
+        scale_factor=1.0,
+        scale_by_std=False,
+        only_model=False,
+        p2_gamma=None,
+        p2_k=None,
+        unfrozen_first_stage=True,
+        unfrozen_unet=False,
+        unfrozen_cond_stage=True,
+        time_replace=None,
+        mix_ratio=0.0,
+        *args,
+        **kwargs,
+    ):
         self.unfrozen_first_stage = unfrozen_first_stage
         self.unfrozen_unet = unfrozen_unet
         self.unfrozen_cond_stage = unfrozen_cond_stage
 
         self.mix_ratio = mix_ratio
         self.time_replace = time_replace
-        use_timesteps = set(space_timesteps(kwargs['timesteps'], [self.time_replace]))
+        use_timesteps = set(space_timesteps(kwargs["timesteps"], [self.time_replace]))
         self.ori_timesteps = list(use_timesteps)
         self.ori_timesteps.sort()
 
@@ -62,40 +76,42 @@ class LatentDiffusionOriSO(LatentDiffusion):
             self.snr = 1.0 / (1 - self.alphas_cumprod) - 1
         else:
             self.snr = None
-        super().__init__(first_stage_config=first_stage_config,
-                         cond_stage_config=cond_stage_config,
-                         num_timesteps_cond=num_timesteps_cond,
-                         cond_stage_key=cond_stage_key,
-                         cond_stage_trainable=cond_stage_trainable,
-                         concat_mode=concat_mode,
-                         cond_stage_forward=cond_stage_forward,
-                         conditioning_key=conditioning_key,
-                         scale_factor=scale_factor,
-                         scale_by_std=scale_by_std,
-                         *args, **kwargs)
+        super().__init__(
+            first_stage_config=first_stage_config,
+            cond_stage_config=cond_stage_config,
+            num_timesteps_cond=num_timesteps_cond,
+            cond_stage_key=cond_stage_key,
+            cond_stage_trainable=cond_stage_trainable,
+            concat_mode=concat_mode,
+            cond_stage_forward=cond_stage_forward,
+            conditioning_key=conditioning_key,
+            scale_factor=scale_factor,
+            scale_by_std=scale_by_std,
+            *args,
+            **kwargs,
+        )
 
         ckpt_path = kwargs.pop("ckpt_path", None)
         ignore_keys = kwargs.pop("ignore_keys", [])
-        only_model = kwargs.pop("only_model", False)    
+        only_model = kwargs.pop("only_model", False)
         if ckpt_path is not None:
             self.init_from_ckpt(ckpt_path, ignore_keys, only_model=only_model)
 
-        print('>>>>>>>>>>>>>>>> model >>>>>>>>>>>>>>>>>>')
+        print(">>>>>>>>>>>>>>>> model >>>>>>>>>>>>>>>>>>")
         for name, param in self.model.named_parameters():
             if param.requires_grad:
                 print(name)
 
-        print('>>>>>>>>>>>>>>>> cond_stage_model >>>>>>>>>>>>>>>>>>')
+        print(">>>>>>>>>>>>>>>> cond_stage_model >>>>>>>>>>>>>>>>>>")
         for name, param in self.cond_stage_model.named_parameters():
             if param.requires_grad:
                 print(name)
 
-        if hasattr(self, 'structcond_stage_model'):
-            print('>>>>>>>>>>>>>>>> structcond_stage_model >>>>>>>>>>>>>>>>>>')
+        if hasattr(self, "structcond_stage_model"):
+            print(">>>>>>>>>>>>>>>> structcond_stage_model >>>>>>>>>>>>>>>>>>")
             for name, param in self.structcond_stage_model.named_parameters():
                 if param.requires_grad:
                     print(name)
- 
 
     def instantiate_first_stage(self, config):
         model = instantiate_from_config(config)
@@ -130,13 +146,13 @@ class LatentDiffusionOriSO(LatentDiffusion):
         import re
         # import traceback
         # print(">>> [DDPM] init_from_ckpt() called <<<")
-        # traceback.print_stack(limit=5)       
+        # traceback.print_stack(limit=5)
         # print(f"Model ID (self): {id(self)}")
 
         # 添加额外自动忽略 Cross-Attn 参数（比如 to_k 和 to_v）
         auto_skip_patterns = [
             "model.diffusion_model.*.attn2.to_k",
-            "model.diffusion_model.*.attn2.to_v"
+            "model.diffusion_model.*.attn2.to_v",
         ]
         # 加载一次 ckpt 的 state_dict，匹配 key 用
         sd = torch.load(path, map_location="cpu")
@@ -151,21 +167,32 @@ class LatentDiffusionOriSO(LatentDiffusion):
             for k in all_keys:
                 if regex.match(k):
                     print(f"[AutoIgnore] Will skip key: {k}")
-                    auto_ignore.add(k.split('.')[0])  # 添加顶层前缀
+                    auto_ignore.add(k.split(".")[0])  # 添加顶层前缀
 
         # 合并手动配置的 ignore_keys 和自动推断的 auto_ignore
         expanded_ignore = list(set(ignore_keys) | auto_ignore)
         # 调用父类实现
         super().init_from_ckpt(path, ignore_keys=expanded_ignore, only_model=only_model)
-        n_trainable = sum(p.numel() for p in self.first_stage_model.parameters() if p.requires_grad)
+        n_trainable = sum(
+            p.numel() for p in self.first_stage_model.parameters() if p.requires_grad
+        )
         print(f"First stage trainable params: {n_trainable:,}")
 
-        n_trainable = sum(p.numel() for p in self.cond_stage_model.parameters() if p.requires_grad)
+        n_trainable = sum(
+            p.numel() for p in self.cond_stage_model.parameters() if p.requires_grad
+        )
         print(f"Cond stage trainable params: {n_trainable:,}")
 
-    def get_input(self, batch, k=None, return_first_stage_outputs=False, force_c_encode=False,
-                cond_key=None, return_original_cond=False, bs=None):
-
+    def get_input(
+        self,
+        batch,
+        k=None,
+        return_first_stage_outputs=False,
+        force_c_encode=False,
+        cond_key=None,
+        return_original_cond=False,
+        bs=None,
+    ):
         # 图像数据加载
         x_lq_up = batch["lq_image"].to(self.device).float()
         x_gt = batch["gt_image"].to(self.device).float()
@@ -178,11 +205,13 @@ class LatentDiffusionOriSO(LatentDiffusion):
         # Ori SO 使用低清图做引导
         # struct_cond = self.get_learned_conditioning(x_lq_up)  # [B, C, 64, 64]
 
-        lq_cond = self.get_first_stage_encoding(self.encode_first_stage(x_lq_up)).detach()  # [B, C, 64, 64]
+        lq_cond = self.get_first_stage_encoding(
+            self.encode_first_stage(x_lq_up)
+        ).detach()  # [B, C, 64, 64]
         # 构造最终条件 dict（不含文本）
         c = {
             "c_crossattn": [torch.zeros((z.shape[0], 77, 768), device=z.device)],
-            "c_concat": [lq_cond],     # 参与拼接
+            "c_concat": [lq_cond],  # 参与拼接
             # "struct_cond": struct_cond # 参与结构引导
         }
         # if c['struct_cond'] is None:
@@ -197,23 +226,38 @@ class LatentDiffusionOriSO(LatentDiffusion):
             out.append(wavelet_cond)
         return out
 
-    def log_images(self, batch, N=8, n_row=4, sample=True, ddim_steps=200, ddim_eta=1., return_keys=None,
-                   quantize_denoised=True, inpaint=False, plot_denoise_rows=False, plot_progressive_rows=False,
-                   plot_diffusion_rows=True, **kwargs):
-
+    def log_images(
+        self,
+        batch,
+        N=8,
+        n_row=4,
+        sample=True,
+        ddim_steps=200,
+        ddim_eta=1.0,
+        return_keys=None,
+        quantize_denoised=True,
+        inpaint=False,
+        plot_denoise_rows=False,
+        plot_progressive_rows=False,
+        plot_diffusion_rows=True,
+        **kwargs,
+    ):
         # use_ddim = ddim_steps is not None
-        use_ddim=False
+        use_ddim = False
 
         log = dict()
-        outs = self.get_input(batch, self.first_stage_key,
-                      return_first_stage_outputs=True,
-                      force_c_encode=True,
-                      return_original_cond=True,
-                      bs=N)
+        outs = self.get_input(
+            batch,
+            self.first_stage_key,
+            return_first_stage_outputs=True,
+            force_c_encode=True,
+            return_original_cond=True,
+            bs=N,
+        )
 
         z, c, z_gt, x_lq_up, x_gt, xrec = outs[:6]  # 不需要 wavelet_cond
         c["c_crossattn"] = c["c_crossattn"][0]  # from [tensor] to tensor
-        x = z_gt# GT image
+        x = z_gt  # GT image
         xc = x_lq_up  # conditioning image
         N = min(x.shape[0], N)
         n_row = min(x.shape[0], n_row)
@@ -222,7 +266,7 @@ class LatentDiffusionOriSO(LatentDiffusion):
         log["input_lq"] = x_lq_up
         log["recon_lq"] = self.decode_first_stage(z)
 
-        struct_cond=z
+        struct_cond = z
 
         if plot_diffusion_rows:
             # get diffusion row
@@ -230,23 +274,29 @@ class LatentDiffusionOriSO(LatentDiffusion):
             z_start = z[:n_row]
             for t in range(self.num_timesteps):
                 if t % self.log_every_t == 0 or t == self.num_timesteps - 1:
-                    t = repeat(torch.tensor([t]), '1 -> b', b=n_row)
+                    t = repeat(torch.tensor([t]), "1 -> b", b=n_row)
                     t = t.to(self.device).long()
                     noise = torch.randn_like(z_start)
                     z_noisy = self.q_sample(x_start=z_start, t=t, noise=noise)
                     diffusion_row.append(self.decode_first_stage(z_noisy))
 
             diffusion_row = torch.stack(diffusion_row)  # n_log_step, n_row, C, H, W
-            diffusion_grid = rearrange(diffusion_row, 'n b c h w -> b n c h w')
-            diffusion_grid = rearrange(diffusion_grid, 'b n c h w -> (b n) c h w')
+            diffusion_grid = rearrange(diffusion_row, "n b c h w -> b n c h w")
+            diffusion_grid = rearrange(diffusion_grid, "b n c h w -> (b n) c h w")
             diffusion_grid = make_grid(diffusion_grid, nrow=diffusion_row.shape[0])
             log["diffusion_row"] = diffusion_grid
 
         if sample:
             # get denoise row
             with self.ema_scope("Plotting"):
-                samples, z_denoise_row = self.sample_log(cond=copy.deepcopy(c), struct_cond=struct_cond, batch_size=N, ddim=use_ddim,
-                                                         ddim_steps=ddim_steps, eta=ddim_eta)
+                samples, z_denoise_row = self.sample_log(
+                    cond=copy.deepcopy(c),
+                    struct_cond=struct_cond,
+                    batch_size=N,
+                    ddim=use_ddim,
+                    ddim_steps=ddim_steps,
+                    eta=ddim_eta,
+                )
                 # samples, z_denoise_row = self.sample(cond=c, batch_size=N, return_intermediates=True)
             x_samples = self.decode_first_stage(samples)
             log["samples"] = x_samples
@@ -254,13 +304,22 @@ class LatentDiffusionOriSO(LatentDiffusion):
                 denoise_grid = self._get_denoise_row_from_list(z_denoise_row)
                 log["denoise_row"] = denoise_grid
 
-            if quantize_denoised and not isinstance(self.first_stage_model, AutoencoderKL) and not isinstance(
-                    self.first_stage_model, IdentityFirstStage):
+            if (
+                quantize_denoised
+                and not isinstance(self.first_stage_model, AutoencoderKL)
+                and not isinstance(self.first_stage_model, IdentityFirstStage)
+            ):
                 # also display when quantizing x0 while sampling
                 with self.ema_scope("Plotting Quantized Denoised"):
-                    samples, z_denoise_row = self.sample_log(cond=copy.deepcopy(c), struct_cond=struct_cond, batch_size=N, ddim=use_ddim,
-                                                             ddim_steps=ddim_steps, eta=ddim_eta,
-                                                             quantize_denoised=True)
+                    samples, z_denoise_row = self.sample_log(
+                        cond=copy.deepcopy(c),
+                        struct_cond=struct_cond,
+                        batch_size=N,
+                        ddim=use_ddim,
+                        ddim_steps=ddim_steps,
+                        eta=ddim_eta,
+                        quantize_denoised=True,
+                    )
                     # samples, z_denoise_row = self.sample(cond=c, batch_size=N, return_intermediates=True,
                     #                                      quantize_denoised=True)
                 x_samples = self.decode_first_stage(samples.to(self.device))
@@ -271,23 +330,37 @@ class LatentDiffusionOriSO(LatentDiffusion):
                 b, h, w = z.shape[0], z.shape[2], z.shape[3]
                 mask = torch.ones(N, h, w).to(self.device)
                 # zeros will be filled in
-                mask[:, h // 4:3 * h // 4, w // 4:3 * w // 4] = 0.
+                mask[:, h // 4 : 3 * h // 4, w // 4 : 3 * w // 4] = 0.0
                 mask = mask[:, None, ...]
                 with self.ema_scope("Plotting Inpaint"):
-
-                    samples, _ = self.sample_log(cond=copy.deepcopy(c), struct_cond=struct_cond, batch_size=N, ddim=use_ddim, eta=ddim_eta,
-                                                ddim_steps=ddim_steps, x0=z[:N], mask=mask)
+                    samples, _ = self.sample_log(
+                        cond=copy.deepcopy(c),
+                        struct_cond=struct_cond,
+                        batch_size=N,
+                        ddim=use_ddim,
+                        eta=ddim_eta,
+                        ddim_steps=ddim_steps,
+                        x0=z[:N],
+                        mask=mask,
+                    )
                 x_samples = self.decode_first_stage(samples.to(self.device))
                 log["samples_inpainting"] = x_samples
                 log["mask"] = mask
 
                 # outpaint
                 with self.ema_scope("Plotting Outpaint"):
-                    samples, _ = self.sample_log(cond=copy.deepcopy(c), struct_cond=struct_cond, batch_size=N, ddim=use_ddim, eta=ddim_eta,
-                                                ddim_steps=ddim_steps, x0=z[:N], mask=mask)
+                    samples, _ = self.sample_log(
+                        cond=copy.deepcopy(c),
+                        struct_cond=struct_cond,
+                        batch_size=N,
+                        ddim=use_ddim,
+                        eta=ddim_eta,
+                        ddim_steps=ddim_steps,
+                        x0=z[:N],
+                        mask=mask,
+                    )
                 x_samples = self.decode_first_stage(samples.to(self.device))
                 log["samples_outpainting"] = x_samples
-
 
         if return_keys:
             if np.intersect1d(list(log.keys()), return_keys).shape[0] == 0:
@@ -295,32 +368,64 @@ class LatentDiffusionOriSO(LatentDiffusion):
             else:
                 return {key: log[key] for key in return_keys}
         return log
-    
+
     @torch.no_grad()
-    def sample(self, cond,struct_cond, batch_size=16, return_intermediates=False, x_T=None,
-            verbose=True, timesteps=None, quantize_denoised=False,
-            mask=None, x0=None, shape=None,**kwargs):
+    def sample(
+        self,
+        cond,
+        struct_cond,
+        batch_size=16,
+        return_intermediates=False,
+        x_T=None,
+        verbose=True,
+        timesteps=None,
+        quantize_denoised=False,
+        mask=None,
+        x0=None,
+        shape=None,
+        **kwargs,
+    ):
         if shape is None:
-            shape = (batch_size, self.channels, self.image_size//8, self.image_size//8)
+            shape = (
+                batch_size,
+                self.channels,
+                self.image_size // 8,
+                self.image_size // 8,
+            )
 
         # struct_cond = cond.pop("struct_cond", None)  # 提前分离出来
 
         if cond is not None:
             if isinstance(cond, dict):
-                cond = {key: cond[key][:batch_size] if not isinstance(cond[key], list) else
-                        list(map(lambda x: x[:batch_size], cond[key])) for key in cond}
+                cond = {
+                    key: cond[key][:batch_size]
+                    if not isinstance(cond[key], list)
+                    else list(map(lambda x: x[:batch_size], cond[key]))
+                    for key in cond
+                }
             else:
-                cond = [c[:batch_size] for c in cond] if isinstance(cond, list) else cond[:batch_size]
+                cond = (
+                    [c[:batch_size] for c in cond]
+                    if isinstance(cond, list)
+                    else cond[:batch_size]
+                )
 
-        return self.p_sample_loop(cond, shape,
-                                return_intermediates=return_intermediates, x_T=x_T,
-                                verbose=verbose, timesteps=timesteps,
-                                quantize_denoised=quantize_denoised,
-                                mask=mask, x0=x0,
-                                struct_cond=struct_cond)  # 明确传入
+        return self.p_sample_loop(
+            cond,
+            shape,
+            return_intermediates=return_intermediates,
+            x_T=x_T,
+            verbose=verbose,
+            timesteps=timesteps,
+            quantize_denoised=quantize_denoised,
+            mask=mask,
+            x0=x0,
+            struct_cond=struct_cond,
+        )  # 明确传入
 
-    def sample_log(self, cond, struct_cond, batch_size, ddim=False, ddim_steps=10, **kwargs):
-
+    def sample_log(
+        self, cond, struct_cond, batch_size, ddim=False, ddim_steps=10, **kwargs
+    ):
         # if ddim:
         #     raise NotImplementedError("DDIM sampling is not implemented in this version of the code.")
         #     ddim_sampler = DDIMSampler(self)
@@ -337,13 +442,19 @@ class LatentDiffusionOriSO(LatentDiffusion):
         #     cond['c_concat'] = [torch.cat([c_concat, c_concat], dim=1)]
         # else:
         #     raise NotImplementedError(f"Conditioning key '{self.conditioning_key}' not supported for sampling.")
-        samples, intermediates = self.sample(cond, struct_cond, batch_size=batch_size,
-                                                return_intermediates=True, **kwargs)
+        samples, intermediates = self.sample(
+            cond,
+            struct_cond,
+            batch_size=batch_size,
+            return_intermediates=True,
+            **kwargs,
+        )
 
         return samples, intermediates
+
     def shared_step(self, batch, **kwargs):
-        x, c,gt = self.get_input(batch, self.first_stage_key)
-        loss = self(x, c,gt, **kwargs)
+        x, c, gt = self.get_input(batch, self.first_stage_key)
+        loss = self(x, c, gt, **kwargs)
         return loss
 
     def forward(self, x, c, gt, *args, **kwargs):
@@ -351,10 +462,12 @@ class LatentDiffusionOriSO(LatentDiffusion):
         Override forward to provide GT latent (z_gt) for loss target.
         """
         index = np.random.randint(0, self.num_timesteps, size=x.size(0))
-        t = torch.randint(0, self.num_timesteps, (x.shape[0],), device=self.device).long()
+        t = torch.randint(
+            0, self.num_timesteps, (x.shape[0],), device=self.device
+        ).long()
         t_ori = torch.tensor([self.ori_timesteps[index_i] for index_i in index])
         t_ori = t_ori.long().to(x.device)
-        
+
         # 如果 conditioning_key 不为空，条件必需存在
         if self.model.conditioning_key is not None:
             assert c is not None
@@ -382,7 +495,7 @@ class LatentDiffusionOriSO(LatentDiffusion):
         model_output = self.apply_model(x_noisy, t_ori, cond, struct_cond)
 
         loss_dict = {}
-        prefix = 'train' if self.training else 'val'
+        prefix = "train" if self.training else "val"
 
         if self.parameterization == "x0":
             target = x_start
@@ -396,28 +509,30 @@ class LatentDiffusionOriSO(LatentDiffusion):
         model_output_ = model_output
 
         loss_simple = self.get_loss(model_output_, target, mean=False).mean([1, 2, 3])
-        loss_dict.update({f'{prefix}/loss_simple': loss_simple.mean()})
+        loss_dict.update({f"{prefix}/loss_simple": loss_simple.mean()})
 
-        #P2 weighting
+        # P2 weighting
         if self.snr is not None:
             self.snr = self.snr.to(loss_simple.device)
-            weight = extract_into_tensor(1 / (self.p2_k + self.snr)**self.p2_gamma, t, target.shape)
+            weight = extract_into_tensor(
+                1 / (self.p2_k + self.snr) ** self.p2_gamma, t, target.shape
+            )
             loss_simple = weight * loss_simple
 
         logvar_t = self.logvar[t.cpu()].to(self.device)
         loss = loss_simple / torch.exp(logvar_t) + logvar_t
         # loss = loss_simple / torch.exp(self.logvar) + self.logvar
         if self.learn_logvar:
-            loss_dict.update({f'{prefix}/loss_gamma': loss.mean()})
-            loss_dict.update({'logvar': self.logvar.data.mean()})
+            loss_dict.update({f"{prefix}/loss_gamma": loss.mean()})
+            loss_dict.update({"logvar": self.logvar.data.mean()})
 
         loss = self.l_simple_weight * loss.mean()
 
         loss_vlb = self.get_loss(model_output_, target, mean=False).mean(dim=(1, 2, 3))
         loss_vlb = (self.lvlb_weights[t] * loss_vlb).mean()
-        loss_dict.update({f'{prefix}/loss_vlb': loss_vlb})
-        loss += (self.original_elbo_weight * loss_vlb)
-        loss_dict.update({f'{prefix}/loss': loss})
+        loss_dict.update({f"{prefix}/loss_vlb": loss_vlb})
+        loss += self.original_elbo_weight * loss_vlb
+        loss_dict.update({f"{prefix}/loss": loss})
 
         return loss, loss_dict
 
@@ -425,12 +540,14 @@ class LatentDiffusionOriSO(LatentDiffusion):
         """
         If cond_stage_model is identity or None, directly use the tensor.
         """
-        if self.cond_stage_model is None or isinstance(self.cond_stage_model, torch.nn.Identity):
+        if self.cond_stage_model is None or isinstance(
+            self.cond_stage_model, torch.nn.Identity
+        ):
             return c
         else:
             return super().get_learned_conditioning(c)
 
-    def apply_model(self, x_noisy, t, cond, struct_cond,return_ids=False):
+    def apply_model(self, x_noisy, t, cond, struct_cond, return_ids=False):
         # print("apply_model cond keys:", cond.keys())
 
         if isinstance(cond, dict):
@@ -439,37 +556,57 @@ class LatentDiffusionOriSO(LatentDiffusion):
         else:
             if not isinstance(cond, list):
                 cond = [cond]
-            key = 'c_concat' if self.model.conditioning_key == 'concat' else 'c_crossattn'
+            key = (
+                "c_concat" if self.model.conditioning_key == "concat" else "c_crossattn"
+            )
             cond = {key: cond}
-       
+
         # if not struct_cond:
         #     struct_cond= cond.get('struct_cond', None)
         #     assert struct_cond is not None, "Conditioning 'struct_cond' must be provided in apply_model."
-        # else: 
+        # else:
         #     struct_cond=struct_cond
         #     assert struct_cond is not None, "Conditioning 'sturct_cond' must be provided in apply_model."
-        
-        c_concat = cond.get('c_concat', None)
-        c_crossattn = cond.get('c_crossattn', None)
-        x_recon = self.model(x_noisy, t, c_concat=c_concat, c_crossattn=c_crossattn,struct_cond=struct_cond)
+
+        c_concat = cond.get("c_concat", None)
+        c_crossattn = cond.get("c_crossattn", None)
+        x_recon = self.model(
+            x_noisy,
+            t,
+            c_concat=c_concat,
+            c_crossattn=c_crossattn,
+            struct_cond=struct_cond,
+        )
 
         if isinstance(x_recon, tuple) and not return_ids:
             return x_recon[0]
         else:
             return x_recon
 
-    def p_mean_variance(self, x, c, t, clip_denoised: bool,
-                    return_codebook_ids=False, quantize_denoised=False,
-                    return_x0=False, score_corrector=None, corrector_kwargs=None,
-                    struct_cond=None):  
-
+    def p_mean_variance(
+        self,
+        x,
+        c,
+        t,
+        clip_denoised: bool,
+        return_codebook_ids=False,
+        quantize_denoised=False,
+        return_x0=False,
+        score_corrector=None,
+        corrector_kwargs=None,
+        struct_cond=None,
+    ):
         t_in = t
 
-        model_out = self.apply_model(x, t_in, c, struct_cond, return_ids=return_codebook_ids)
+        model_out = self.apply_model(
+            x, t_in, c, struct_cond, return_ids=return_codebook_ids
+        )
 
         if score_corrector is not None:
             assert self.parameterization == "eps"
-            model_out = score_corrector.modify_score(self, model_out, x, t, c, **corrector_kwargs)
+            model_out = score_corrector.modify_score(
+                self, model_out, x, t, c, **corrector_kwargs
+            )
 
         if return_codebook_ids:
             model_out, logits = model_out
@@ -485,12 +622,13 @@ class LatentDiffusionOriSO(LatentDiffusion):
             raise NotImplementedError()
 
         if clip_denoised:
-            x_recon.clamp_(-1., 1.)
+            x_recon.clamp_(-1.0, 1.0)
         if quantize_denoised:
             x_recon, _, [_, _, indices] = self.first_stage_model.quantize(x_recon)
 
         model_mean, posterior_variance, posterior_log_variance = self.q_posterior(
-            x_start=x_recon, x_t=x, t=t)
+            x_start=x_recon, x_t=x, t=t
+        )
 
         if return_codebook_ids:
             return model_mean, posterior_variance, posterior_log_variance, logits
@@ -499,22 +637,36 @@ class LatentDiffusionOriSO(LatentDiffusion):
         else:
             return model_mean, posterior_variance, posterior_log_variance
 
-    def p_sample(self, x, c, t, clip_denoised=False, repeat_noise=False,
-                return_codebook_ids=False, quantize_denoised=False, return_x0=False,
-                temperature=1., noise_dropout=0., score_corrector=None, corrector_kwargs=None,
-                struct_cond=None):  #  struct_cond 参数
+    def p_sample(
+        self,
+        x,
+        c,
+        t,
+        clip_denoised=False,
+        repeat_noise=False,
+        return_codebook_ids=False,
+        quantize_denoised=False,
+        return_x0=False,
+        temperature=1.0,
+        noise_dropout=0.0,
+        score_corrector=None,
+        corrector_kwargs=None,
+        struct_cond=None,
+    ):  #  struct_cond 参数
         b, *_, device = *x.shape, x.device
 
         # 传入 struct_cond 给 p_mean_variance
         outputs = self.p_mean_variance(
-            x=x, c=c, t=t, clip_denoised=clip_denoised,
+            x=x,
+            c=c,
+            t=t,
+            clip_denoised=clip_denoised,
             return_codebook_ids=return_codebook_ids,
             quantize_denoised=quantize_denoised,
             return_x0=return_x0,
             score_corrector=score_corrector,
             corrector_kwargs=corrector_kwargs,
             struct_cond=struct_cond,  # 明确传入
-
         )
 
         if return_codebook_ids:
@@ -526,23 +678,41 @@ class LatentDiffusionOriSO(LatentDiffusion):
             model_mean, _, model_log_variance = outputs
 
         noise = noise_like(x.shape, device, repeat_noise) * temperature
-        if noise_dropout > 0.:
+        if noise_dropout > 0.0:
             noise = torch.nn.functional.dropout(noise, p=noise_dropout)
 
         nonzero_mask = (1 - (t == 0).float()).reshape(b, *((1,) * (len(x.shape) - 1)))
 
         if return_codebook_ids:
-            return model_mean + nonzero_mask * (0.5 * model_log_variance).exp() * noise, logits.argmax(dim=1)
+            return model_mean + nonzero_mask * (
+                0.5 * model_log_variance
+            ).exp() * noise, logits.argmax(dim=1)
         if return_x0:
-            return model_mean + nonzero_mask * (0.5 * model_log_variance).exp() * noise, x0
+            return model_mean + nonzero_mask * (
+                0.5 * model_log_variance
+            ).exp() * noise, x0
         else:
             return model_mean + nonzero_mask * (0.5 * model_log_variance).exp() * noise
 
-    def p_sample_loop(self, cond, shape, return_intermediates=False,
-                x_T=None, verbose=True, callback=None, timesteps=None,
-                quantize_denoised=False, mask=None, x0=None, img_callback=None,
-                start_T=None, log_every_t=None, interfea_path=None, time_replace=None,struct_cond=None):  # add struct_cond parameter
-
+    def p_sample_loop(
+        self,
+        cond,
+        shape,
+        return_intermediates=False,
+        x_T=None,
+        verbose=True,
+        callback=None,
+        timesteps=None,
+        quantize_denoised=False,
+        mask=None,
+        x0=None,
+        img_callback=None,
+        start_T=None,
+        log_every_t=None,
+        interfea_path=None,
+        time_replace=None,
+        struct_cond=None,
+    ):  # add struct_cond parameter
         if not log_every_t:
             log_every_t = self.log_every_t
         device = self.betas.device
@@ -560,32 +730,42 @@ class LatentDiffusionOriSO(LatentDiffusion):
         if start_T is not None:
             timesteps = min(timesteps, start_T)
 
-        iterator = tqdm(reversed(range(0, timesteps)), desc='Sampling t', total=timesteps,leave=False) if verbose else reversed(
-            range(0, timesteps))
+        iterator = (
+            tqdm(
+                reversed(range(0, timesteps)),
+                desc="Sampling t",
+                total=timesteps,
+                leave=False,
+            )
+            if verbose
+            else reversed(range(0, timesteps))
+        )
 
         if mask is not None:
             assert x0 is not None
             assert x0.shape[2:3] == mask.shape[2:3]  # spatial size has to match
 
-        batch_list=[]
+        batch_list = []
         for i in iterator:
             # ts = torch.full((b,), i, device=device, dtype=torch.long)
             if time_replace is None or time_replace == 1000:
                 ts = torch.full((b,), i, device=device, dtype=torch.long)
-                t_replace=None
+                t_replace = None
             else:
                 ts = torch.full((b,), i, device=device, dtype=torch.long)
-                t_replace = repeat(torch.tensor([self.ori_timesteps[i]]), '1 -> b', b=img.size(0))
+                t_replace = repeat(
+                    torch.tensor([self.ori_timesteps[i]]), "1 -> b", b=img.size(0)
+                )
                 t_replace = t_replace.long().to(device)
             if self.shorten_cond_schedule:
-                assert self.model.conditioning_key != 'hybrid'
+                assert self.model.conditioning_key != "hybrid"
                 tc = self.cond_ids[ts].to(cond.device)
                 cond = self.q_sample(x_start=cond, t=tc, noise=torch.randn_like(cond))
 
             if t_replace is not None:
                 if start_T is not None:
                     if self.ori_timesteps[i] > start_T:
-                         continue
+                        continue
                 struct_cond_input = self.cond_stage_model(struct_cond, t_replace)
             else:
                 if start_T is not None:
@@ -598,7 +778,9 @@ class LatentDiffusionOriSO(LatentDiffusion):
             if interfea_path is not None:
                 batch_list.append(struct_cond_input)
             img = self.p_sample(
-                img, cond, ts,
+                img,
+                cond,
+                ts,
                 clip_denoised=self.clip_denoised,
                 quantize_denoised=quantize_denoised,
                 struct_cond=struct_cond_input,  # 明确传入
@@ -606,14 +788,15 @@ class LatentDiffusionOriSO(LatentDiffusion):
 
             if mask is not None:
                 img_orig = self.q_sample(x0, ts)
-                img = img_orig * mask + (1. - mask) * img
+                img = img_orig * mask + (1.0 - mask) * img
 
             if i % log_every_t == 0 or i == timesteps - 1:
                 intermediates.append(img)
-            if callback: callback(i)
-            if img_callback: img_callback(img, i)
+            if callback:
+                callback(i)
+            if img_callback:
+                img_callback(img, i)
 
         if return_intermediates:
             return img, intermediates
         return img
-
