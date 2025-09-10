@@ -28,7 +28,9 @@ class WaveletSRDataset(Dataset):
             gt_path = params["gt_path"]
             crop_size = params["crop_size"]
             wavelet = params.get("wavelet", "haar")
-            image_type = params.get("image_type", "['png']")
+            image_type = params.get(
+                "image_type", ["png", "jpg", "jpg", "bmp", "tif", "tiff"]
+            )
         # else:
         #     raise ValueError("opt is not DictConfig")
         # 兼容 ListConfig（配置中是列表形式）
@@ -144,7 +146,9 @@ class GradientSRDataset(Dataset):
             params = gt_path
             gt_path = params.get("gt_path", None)
             crop_size = params.get("crop_size", crop_size)
-
+            image_type = params.get(
+                "image_type", ["png", "jpg", "jpeg", "bmp", "tif", "tiff"]
+            )
         self.image_paths = []
         if isinstance(gt_path, (ListConfig, list)):
             for p in gt_path:
