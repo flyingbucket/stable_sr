@@ -29,7 +29,8 @@ class WaveletSRDataset(Dataset):
             crop_size = params["crop_size"]
             wavelet = params.get("wavelet", "haar")
             image_type = params.get("image_type", "['png']")
-
+        # else:
+        #     raise ValueError("opt is not DictConfig")
         # 兼容 ListConfig（配置中是列表形式）
         self.image_paths = []
         if isinstance(gt_path, (ListConfig, list)):
@@ -281,7 +282,7 @@ def simulate_degradation(
 
 
 class WaveletSRDGDataset(Dataset):
-    def __init__(self, gt_path=None, crop_size=None, wavelet="haar", **kwargs):
+    def __init__(self, opt, **kwargs):
         """
         Args:
             gt_path (str or list): 图像路径根目录
@@ -290,13 +291,15 @@ class WaveletSRDGDataset(Dataset):
             kwargs: 兼容 config 调用时传入的额外字段
         """
 
-        # 如果是 config 字典，说明传的是整个 params
-        if isinstance(gt_path, (DictConfig, dict)):
-            params = gt_path
-            gt_path = params.get("gt_path", None)
-            crop_size = params.get("crop_size", crop_size)
-            wavelet = params.get("wavelet", wavelet)
-
+        if isinstance(opt, (DictConfig, dict)):
+            params = opt
+            gt_path = params["gt_path"]
+            crop_size = params["crop_size"]
+            wavelet = params.get("wavelet", "haar")
+            image_type = params.get("image_type", ["png"])
+        # else:
+        #     raise ValueError("opt is not DictConfig")
+        # 兼容 ListConfig（配置中是列表形式）
         self.image_paths = []
         if isinstance(gt_path, (ListConfig, list)):
             for p in gt_path:
@@ -307,16 +310,7 @@ class WaveletSRDGDataset(Dataset):
                 self.image_paths.extend(sorted(glob(os.path.join(gt_path, f"*.{ext}"))))
         else:
             raise TypeError("gt_path 应为字符串或路径列表")
-        # # 兼容 ListConfig（配置中是列表形式）
-        # if isinstance(gt_path, (ListConfig, list)):
-        #     assert len(gt_path) > 0, "gt_path 不能是空列表"
-        #     gt_path = gt_path[0]
-        #
-        # assert isinstance(gt_path, str), (
-        #     f"gt_path 应为字符串，但实际为: {type(gt_path)}"
-        # )
 
-        # self.image_paths = sorted(glob(os.path.join(gt_path, "*.png")))
         self.crop_size = crop_size
         self.wavelet = wavelet
 
@@ -368,19 +362,43 @@ class WaveletSRDGDataset(Dataset):
                 # 裁剪中心区域
                 if self.crop_size:
                     img_gt = self._crop_center(img_gt, self.crop_size)
+                # --- Degrade GT to LR (numpy) ---
+                gt_np = img_gt.squeeze(0).numpy().astype(np.float32)  # [H, W]
+                _, lr_np, lr_denoised_np = simulate_degradation(
+                    gt_np
+                )  # lr_np ~ [H/scale, W/scale]
+                # 选择去噪后或未去噪版本作为网络输入，这里用去噪后的：
+                lr_np = lr_denoised_np
 
-                # 下采样 + 上采样 (bicubic)
-                degraded = img_gt.clone()
-                degraded_np = degraded.squeeze(0).numpy().astype(np.float32)
-                _, _, degraded_np = simulate_degradation(degraded_np)
-                degraded_batched = degraded.unsqueeze(0)
+                # --- Back to torch tensor (NCHW) ---
+                device = img_gt.device
+                lr_t = (
+                    torch.from_numpy(lr_np)
+                    .to(device=device, dtype=torch.float32)
+                    .unsqueeze(0)
+                    .unsqueeze(0)
+                )  # [1,1,h',w']
+
+                # --- Upsample back to GT size with bicubic ---
                 lq_up = F.interpolate(
-                    degraded_batched,
-                    size=img_gt.shape[-2:],
-                    mode="bicubic",
-                    align_corners=False,
-                )
-                lq_up = lq_up.squeeze(0)
+                    lr_t, size=(h, w), mode="bicubic", align_corners=False
+                ).squeeze(0)  # [1,H,W]
+                lq_up = lq_up.clamp_(0, 1)
+
+                # --- Wavelet on the upsampled LQ (2D numpy needed) ---
+                wavelet = self._dwt_tensor(lq_up)  # returns [4, H/2, W/2]
+                # # 下采样 + 上采样 (bicubic)
+                # degraded = img_gt.clone()
+                # degraded_np = degraded.squeeze(0).numpy().astype(np.float32)
+                # _, _, degraded_np = simulate_degradation(degraded_np)
+                # degraded_batched = degraded.unsqueeze(0)
+                # lq_up = F.interpolate(
+                #     degraded_np,
+                #     size=img_gt.shape[-2:],
+                #     mode="bicubic",
+                #     align_corners=False,
+                # )
+                # lq_up = lq_up.squeeze(0)
 
                 # 小波变换
                 wavelet = self._dwt_tensor(lq_up)

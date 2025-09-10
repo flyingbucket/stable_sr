@@ -121,7 +121,7 @@ degradation:
 data:
   target: main.DataModuleFromConfig
   params:
-    batch_size: 18
+    batch_size: 8
     num_workers: 6
     wrap: false
     train:
