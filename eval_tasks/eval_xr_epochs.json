@@ -1,0 +1,36 @@
+{
+    "tasks": {
+        "1": {
+            "logdir": "/home/flyingbucket/stablesr/logs/2025-09-10T11-50-02_Ori_KL_structonly",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null,
+            "detail_dir": "eval_xr/DDHR-korea",
+            "gt_path": "/home/flyingbucket/DataStore/selected_datasets/korea"
+        },
+        "3": {
+            "logdir": "/home/flyingbucket/stablesr/logs/2025-09-10T11-58-44_KLP_SO_256",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null,
+            "detail_dir": "eval_xr/DDHR-korea",
+            "gt_path": "/home/flyingbucket/DataStore/selected_datasets/korea"
+        },
+        "5": {
+            "logdir": "/home/flyingbucket/stablesr/logs/2025-09-10T19-13-35_W_KLP_SO_256_exp",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null,
+            "detail_dir": "eval_xr/DDHR-korea",
+            "gt_path": "/home/flyingbucket/DataStore/selected_datasets/korea"
+        }
+    },
+    "skip": [],
+    "primary": []
+}
