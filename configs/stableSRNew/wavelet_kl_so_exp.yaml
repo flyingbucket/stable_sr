@@ -54,7 +54,7 @@ model:
     first_stage_config:
       target: ldm.models.autoencoder.AutoencoderKL
       params:
-        ckpt_path: /home/flyingbucket/stablesr/logs/2025-08-06T12-11-00_KLP_256/checkpoints/epoch=000017.ckpt
+        ckpt_path: /home/flyingbucket/stablesr/logs/2025-07-31T19-07-09_AKL_256/checkpoints/epoch=000014.ckpt
         embed_dim: 4
         monitor: val/rec_loss
         ddconfig:
