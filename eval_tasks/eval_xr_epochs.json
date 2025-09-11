@@ -31,6 +31,6 @@
             "gt_path": "/home/flyingbucket/DataStore/selected_datasets/korea"
         }
     },
-    "skip": [],
+    "skip": [5],
     "primary": []
 }
