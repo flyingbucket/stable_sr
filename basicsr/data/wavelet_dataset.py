@@ -418,6 +418,7 @@ class WaveletSRDGDataset(Dataset):
                 # 读取异常或处理异常，跳过当前图片
                 tries += 1
                 index = (index + 1) % len(self.image_paths)
+                print(e)
 
         raise RuntimeError(f"Too many bad images starting from index {index}")
 

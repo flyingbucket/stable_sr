@@ -35,6 +35,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--every_n_epoch", type=int, help="Eval one epoch of every n epoch", default=1
     )
+    parser.add_argument("--max_ckpts", type=int, help="Max number of ckpts to eval")
     parser.add_argument(
         "--gt_path",
         type=str,
@@ -121,7 +122,7 @@ if __name__ == "__main__":
         else:
             finished_ckpts = []
         for name in os.listdir(ckpt_dir):
-            if not "v1" in name and not "last" in name:
+            if not "last" in name:
                 ckpts.append(name)
         ckpts.sort()
         ckpts_to_eval = []

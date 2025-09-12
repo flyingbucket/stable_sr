@@ -52,7 +52,7 @@ model:
         semb_channels: 256
 
     first_stage_config:
-      target: ldm.models.autoencoder.AutoencoderKL
+      target: ldm.models.autoencoder_plus.AutoencoderKLPlus
       params:
         ckpt_path: logs/2025-07-31T19-07-09_AKL_256/checkpoints/epoch=000014.ckpt
         embed_dim: 4
@@ -64,7 +64,7 @@ model:
           in_channels: 1
           out_ch: 1
           ch: 128
-          ch_mult: [1, 2, 4, 4]
+          ch_mult: [1, 2, 4]
           num_res_blocks: 2
           attn_resolutions: []
           dropout: 0.0
@@ -125,7 +125,7 @@ degradation:
 data:
   target: main.DataModuleFromConfig
   params:
-    batch_size: 16
+    batch_size: 12
     num_workers: 6
     wrap: false
     train:
