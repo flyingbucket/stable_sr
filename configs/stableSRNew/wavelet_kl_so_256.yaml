@@ -23,8 +23,7 @@ model:
     # ckpt_path: "ckpt/KL_256_e6_merge.ckpt"
     only_model: False
     learn_logvar: False
-    ignore_keys:
-      []
+    ignore_keys: []
       # - "first_stage_model"
       # - "model.diffusion_model.*.attn2.to_k"
       # - "model.diffusion_model.*.attn2.to_v"
@@ -55,7 +54,7 @@ model:
     first_stage_config:
       target: ldm.models.autoencoder.AutoencoderKL
       params:
-        ckpt_path: logs/2025-07-31T19-07-09_AKL_256/checkpoints/epoch=000006.ckpt
+        ckpt_path: logs/2025-07-31T19-07-09_AKL_256/checkpoints/epoch=000014.ckpt
         embed_dim: 4
         monitor: val/rec_loss
         ddconfig:

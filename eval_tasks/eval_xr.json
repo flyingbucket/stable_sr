@@ -7,7 +7,7 @@
             "step_flag": "--ddpm_step",
             "step_value": 200,
             "dataset": null,
-            "detail_dir": "eval_xr/DDHR-korea",
+            "detail_dir": "eval_xr_new/DDHR-korea",
             "gt_path": "/home/flyingbucket/DataStore/selected_datasets/korea"
         },
         "2": {
@@ -17,7 +17,7 @@
             "step_flag": "--ddpm_step",
             "step_value": 200,
             "dataset": null,
-            "detail_dir": "eval_xr/DDHR-shandong",
+            "detail_dir": "eval_xr_new/DDHR-shandong",
             "gt_path": "/home/flyingbucket/DataStore/selected_datasets/shandong"
         },
         "3": {
@@ -27,7 +27,7 @@
             "step_flag": "--ddpm_step",
             "step_value": 200,
             "dataset": null,
-            "detail_dir": "eval_xr/DDHR-korea",
+            "detail_dir": "eval_xr_new/DDHR-korea",
             "gt_path": "/home/flyingbucket/DataStore/selected_datasets/korea"
         },
         "4": {
@@ -37,31 +37,51 @@
             "step_flag": "--ddpm_step",
             "step_value": 200,
             "dataset": null,
-            "detail_dir": "eval_xr/DDHR-shandong",
+            "detail_dir": "eval_xr_new/DDHR-shandong",
             "gt_path": "/home/flyingbucket/DataStore/selected_datasets/shandong"
         },
         "5": {
-            "logdir": "/home/flyingbucket/stablesr/logs/2025-09-10T19-13-35_W_KLP_SO_256_exp",
+            "logdir": "/home/flyingbucket/stablesr/logs/2025-09-10T12-02-53_W_KLP_SO_256_exp",
             "mode": "DDPM original",
             "script": "eval_ddpm.py",
             "step_flag": "--ddpm_step",
             "step_value": 200,
             "dataset": null,
-            "detail_dir": "eval_xr/DDHR-korea",
+            "detail_dir": "eval_xr_new/DDHR-korea",
             "gt_path": "/home/flyingbucket/DataStore/selected_datasets/korea"
         },
         "6": {
-            "logdir": "/home/flyingbucket/stablesr/logs/2025-09-10T19-13-35_W_KLP_SO_256_exp",
+            "logdir": "/home/flyingbucket/stablesr/logs/2025-09-10T12-02-53_W_KLP_SO_256_exp",
             "mode": "DDPM original",
             "script": "eval_ddpm.py",
             "step_flag": "--ddpm_step",
             "step_value": 200,
             "dataset": null,
-            "detail_dir": "eval_xr/DDHR-shandong",
+            "detail_dir": "eval_xr_new/DDHR-shandong",
+            "gt_path": "/home/flyingbucket/DataStore/selected_datasets/shandong"
+        },
+        "7": {
+            "logdir": "/home/flyingbucket/stablesr/logs/2025-09-11T23-13-38_W_KL_SO_256_exp",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null,
+            "detail_dir": "eval_xr_new/DDHR-korea",
+            "gt_path": "/home/flyingbucket/DataStore/selected_datasets/korea"
+        },
+        "8": {
+            "logdir": "/home/flyingbucket/stablesr/logs/2025-09-11T23-13-38_W_KL_SO_256_exp",
+            "mode": "DDPM original",
+            "script": "eval_ddpm.py",
+            "step_flag": "--ddpm_step",
+            "step_value": 200,
+            "dataset": null,
+            "detail_dir": "eval_xr_new/DDHR-shandong",
             "gt_path": "/home/flyingbucket/DataStore/selected_datasets/shandong"
         }
     },
-    "skip": [],
+    "skip": [2,3,4,6,8],
     "primary": []
 }
 

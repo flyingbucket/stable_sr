@@ -16,7 +16,7 @@ model:
     image_size: 256
     channels: 4
     cond_stage_trainable: True
-    ckpt_path: "/home/flyingbucket/stablesr/logs/2025-08-15T22-56-24_W_KLP_SO_256/checkpoints/epoch=000040.ckpt"
+    ckpt_path: "/home/flyingbucket/stablesr/logs/2025-08-15T22-56-24_W_KLP_SO_256/checkpoints/epoch=000054.ckpt"
     monitor: val/loss_simple_ema
     scale_factor: 0.18215
     use_ema: False
@@ -128,8 +128,14 @@ data:
       target: basicsr.data.wavelet_dataset.WaveletSRDGDataset
       params:
         image_type: ["png", "jpg", "tif", "bmd"]
-        # gt_path: "/home/flyingbucket/DataStore/WHU_512"
-        gt_path: ["/home/flyingbucket/DataStore/DDHRNet_DATA/korea/cloud/GF3"]
+        gt_path:
+          [
+            "/home/flyingbucket/DataStore/DDHRNet_DATA/korea/cloud/GF3",
+            "/home/flyingbucket/DataStore/DDHRNet_DATA/shandong/GF3",
+            "/home/flyingbucket/DataStore/NKU_coco/train_256",
+            "/home/flyingbucket/DataStore/iceye/train_256",
+            "/home/flyingbucket/DataStore/HR-SARBuD/images_256",
+          ]
         crop_size: 256
         io_backend:
           type: disk
@@ -141,9 +147,14 @@ data:
       target: basicsr.data.wavelet_dataset.WaveletSRDGDataset
       params:
         image_type: ["png", "jpg", "tif", "bmd"]
-        # gt_path: "/home/flyingbucket/DataStore/WHU_512_small"
         gt_path:
-          ["/home/flyingbucket/DataStore/DDHRNet_DATA/korea/cloud/GF3_test"]
+          [
+            "/home/flyingbucket/DataStore/DDHRNet_DATA/korea/cloud/GF3_test",
+            "/home/flyingbucket/DataStore/DDHRNet_DATA/shandong/GF3_test",
+            "/home/flyingbucket/DataStore/NKU_coco/train_256_test",
+            "/home/flyingbucket/DataStore/iceye/train_256_test",
+            "/home/flyingbucket/DataStore/HR-SARBuD/images_256_test",
+          ]
         crop_size: 256
         io_backend:
           type: disk
@@ -161,7 +172,13 @@ test_data:
       target: basicsr.data.wavelet_dataset.WaveletSRDGDataset
       params:
         gt_path:
-          ["/home/flyingbucket/DataStore/DDHRNet_DATA/korea/cloud/GF3_test"]
+          [
+            "/home/flyingbucket/DataStore/DDHRNet_DATA/korea/cloud/GF3_test",
+            "/home/flyingbucket/DataStore/DDHRNet_DATA/shandong/GF3_test",
+            "/home/flyingbucket/DataStore/NKU_coco/train_256_test",
+            "/home/flyingbucket/DataStore/iceye/train_256_test",
+            "/home/flyingbucket/DataStore/HR-SARBuD/images_256_test",
+          ]
         image_type: ["png", "jpg", "tif", "bmd"]
         crop_size: 256
         io_backend:

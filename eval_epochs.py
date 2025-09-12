@@ -33,6 +33,9 @@ if __name__ == "__main__":
         "--task_path", type=str, help="Path of the json file that records tasks"
     )
     parser.add_argument(
+        "--every_n_epoch", type=int, help="Eval one epoch of every n epoch", default=1
+    )
+    parser.add_argument(
         "--gt_path",
         type=str,
         help="Path to test set image dir,could be covered in task.json",
@@ -71,7 +74,7 @@ if __name__ == "__main__":
     tasks = config["tasks"]
     skip = config.get("skip", [])
     primary = config.get("primary", [])
-
+    every_n_epoch = args.every_n_epoch
     gpu = args.gpu
     batch_size = args.batch_size
     gt_path = args.gt_path
@@ -121,8 +124,13 @@ if __name__ == "__main__":
             if not "v1" in name and not "last" in name:
                 ckpts.append(name)
         ckpts.sort()
-        print(f"\033[33mCKPTS:\n{ckpts}\033[0m")
-        for ckpt_name in ckpts:
+        ckpts_to_eval = []
+        for i in range(len(ckpts)):
+            if i % every_n_epoch == 0:
+                ckpts_to_eval.append(ckpts[i])
+        ckpts_to_eval.sort()
+        print(f"\033[33mCKPTS:\n{ckpts_to_eval}\033[0m")
+        for ckpt_name in ckpts_to_eval:
             if ckpt_name in finished_ckpts:
                 continue
             gt_path = task.get("gt_path", gt_path)
@@ -167,10 +175,10 @@ if __name__ == "__main__":
                 cmd += ["--dataset", dataset]
             try:
                 subprocess.run(cmd, check=True)
-                msg = f"[{task_id}] {mode} success: {logdir}"
+                msg = f"[{task_id}] {mode} success: {exp_name}/{ckpt_name}"
                 success_tasks.append(msg)
             except Exception as e:
-                msg = f"[{task_id}] {mode} failed: {logdir}"
+                msg = f"[{task_id}] {mode} failed: {exp_name}/{ckpt_name}"
                 failed_tasks.append(msg)
             finished_tasks.append(int(task_id))
             finished_tasks.sort()
