@@ -656,6 +656,7 @@ if __name__ == "__main__":
     print(f"detail dir:{args.detail_dir}")
     print(f"数据表写入位置: {args.save_path}")
     print(f"Max number of batches: {args.max_batch}")
+    print(f"Save images: {args.save_images}")
     print("===================\n")
     print("Loading Model ...")
 
